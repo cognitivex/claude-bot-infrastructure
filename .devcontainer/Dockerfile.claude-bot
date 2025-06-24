@@ -1,0 +1,61 @@
+FROM node:18-alpine
+
+# Install system dependencies
+RUN apk add --no-cache \
+    git \
+    bash \
+    curl \
+    python3 \
+    py3-pip \
+    openssh-client \
+    jq
+
+# Install GitHub CLI
+RUN curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg | dd of=/usr/share/keyrings/githubcli-archive-keyring.gpg \
+    && chmod go+r /usr/share/keyrings/githubcli-archive-keyring.gpg \
+    && echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main" | tee /etc/apt/sources.list.d/github-cli.list > /dev/null \
+    && apk add --no-cache github-cli || \
+    # Fallback: install via tarball if package not available
+    (wget -q https://github.com/cli/cli/releases/download/v2.40.0/gh_2.40.0_linux_amd64.tar.gz -O - | tar -xz && \
+     mv gh_2.40.0_linux_amd64/bin/gh /usr/local/bin/ && \
+     rm -rf gh_2.40.0_linux_amd64)
+
+# Create non-root user
+ARG USERNAME=bot
+ARG USER_UID=1000
+ARG USER_GID=$USER_UID
+
+RUN addgroup -g $USER_GID $USERNAME \
+    && adduser -D -u $USER_UID -G $USERNAME $USERNAME
+
+# Create bot directories
+RUN mkdir -p /bot/data /bot/scripts /bot/logs \
+    && chown -R $USERNAME:$USERNAME /bot
+
+# Install Claude Code CLI globally
+RUN npm install -g @anthropic-ai/claude-code
+
+# Install Python packages for automation
+RUN pip3 install --no-cache-dir \
+    requests \
+    pyyaml \
+    python-dotenv \
+    schedule
+
+# Switch to non-root user
+USER $USERNAME
+
+# Set working directory
+WORKDIR /workspace
+
+# Copy bot scripts into container
+COPY --chown=$USERNAME:$USERNAME scripts/ /bot/scripts/
+
+# Add bot scripts directory to PATH
+ENV PATH="/bot/scripts:${PATH}"
+
+# Create initial bot data directories
+RUN mkdir -p /bot/data/tasks /bot/data/queue /bot/data/processed /bot/data/pr_feedback
+
+# Copy configuration templates
+COPY --chown=$USERNAME:$USERNAME config/ /bot/config/

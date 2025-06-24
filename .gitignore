@@ -1,0 +1,26 @@
+# Environment configuration
+.env
+
+# Bot data (if running locally)
+data/
+logs/
+
+# Docker volumes
+.docker/
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Temporary files
+*.tmp
+*.log
+
+# Project-specific config (contains secrets)
+config/project-config.yml

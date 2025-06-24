@@ -1,0 +1,39 @@
+version: '3.8'
+
+services:
+  claude-bot:
+    build:
+      context: .
+      dockerfile: Dockerfile.claude-bot
+    volumes:
+      # Mount the target project directory
+      # Update PROJECT_PATH in .env to point to your project
+      - ${PROJECT_PATH:-../target-project}:/workspace:cached
+      - bot-data:/bot/data
+      - bot-logs:/bot/logs
+      # Mount git and SSH config from host
+      - ~/.ssh:/home/bot/.ssh:ro
+      - ~/.gitconfig:/home/bot/.gitconfig:ro
+    environment:
+      # Required: API keys and tokens
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+      - GITHUB_TOKEN=${GITHUB_TOKEN}
+      
+      # Git configuration
+      - GIT_AUTHOR_NAME=${GIT_AUTHOR_NAME:-Claude Bot}
+      - GIT_AUTHOR_EMAIL=${GIT_AUTHOR_EMAIL:-claude-bot@example.com}
+      - GIT_COMMITTER_NAME=${GIT_COMMITTER_NAME:-Claude Bot}
+      - GIT_COMMITTER_EMAIL=${GIT_COMMITTER_EMAIL:-claude-bot@example.com}
+      
+      # Bot configuration
+      - TARGET_REPO=${TARGET_REPO}
+      - BOT_LABEL=${BOT_LABEL:-claude-bot}
+      - ISSUE_CHECK_INTERVAL=${ISSUE_CHECK_INTERVAL:-15}
+      - PR_CHECK_INTERVAL=${PR_CHECK_INTERVAL:-30}
+    command: tail -f /dev/null
+    working_dir: /workspace
+    restart: unless-stopped
+
+volumes:
+  bot-data:
+  bot-logs:

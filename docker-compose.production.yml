@@ -1,0 +1,147 @@
+services:
+  claude-bot:
+    restart: always
+    deploy:
+      resources:
+        limits:
+          cpus: '2'
+          memory: 2G
+        reservations:
+          cpus: '1'
+          memory: 1G
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "5"
+        compress: "true"
+    security_opt:
+      - no-new-privileges:true
+      - apparmor:docker-default
+    read_only: true
+    tmpfs:
+      - /tmp:noexec,nosuid,size=100m
+      - /run:noexec,nosuid,size=50m
+    environment:
+      - ENVIRONMENT=production
+      - ENABLE_METRICS=true
+      - ENABLE_STRUCTURED_LOGGING=true
+      - LOG_LEVEL=INFO
+    healthcheck:
+      test: ["CMD", "/bot/scripts/health-check.sh"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+
+  claude-bot-dotnet:
+    restart: always
+    deploy:
+      resources:
+        limits:
+          cpus: '2'
+          memory: 3G
+        reservations:
+          cpus: '1'
+          memory: 1.5G
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "5"
+        compress: "true"
+    security_opt:
+      - no-new-privileges:true
+      - apparmor:docker-default
+    read_only: true
+    tmpfs:
+      - /tmp:noexec,nosuid,size=200m
+      - /run:noexec,nosuid,size=50m
+    environment:
+      - ENVIRONMENT=production
+      - ENABLE_METRICS=true
+      - ENABLE_STRUCTURED_LOGGING=true
+      - LOG_LEVEL=INFO
+    healthcheck:
+      test: ["CMD", "/bot/scripts/health-check.sh"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+
+  status-web:
+    restart: always
+    deploy:
+      resources:
+        limits:
+          cpus: '1'
+          memory: 512M
+        reservations:
+          cpus: '0.5'
+          memory: 256M
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "5"
+        compress: "true"
+    security_opt:
+      - no-new-privileges:true
+      - apparmor:docker-default
+    read_only: true
+    tmpfs:
+      - /tmp:noexec,nosuid,size=50m
+    environment:
+      - FLASK_ENV=production
+      - PYTHONUNBUFFERED=1
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5000/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+
+# Production-specific volumes
+volumes:
+  bot-data:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: /opt/claude-bot-data
+  
+  bot-logs:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: /opt/claude-bot-logs
+  
+  bot-data-dotnet:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: /opt/claude-bot-data-dotnet
+  
+  bot-logs-dotnet:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: /opt/claude-bot-logs-dotnet
+  
+  status-data:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: /opt/claude-status-data
+
+# Production networks
+networks:
+  default:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.20.0.0/16

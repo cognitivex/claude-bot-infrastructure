@@ -6,6 +6,10 @@ set -e
 
 echo "🤖 Starting Claude Bot Infrastructure..."
 
+# Debug environment
+echo "🔍 Debug: Current working directory: $(pwd)"
+echo "🔍 Debug: PROJECT_PATH env var: $PROJECT_PATH"
+
 # Check required environment variables
 if [ -z "$ANTHROPIC_API_KEY" ]; then
     echo "❌ Error: ANTHROPIC_API_KEY is required"

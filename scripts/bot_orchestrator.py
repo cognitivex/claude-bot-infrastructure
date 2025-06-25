@@ -6,19 +6,46 @@ Bot Orchestrator - Manages both issue processing and PR feedback handling
 import time
 import schedule
 import argparse
+import sys
+import os
 from pathlib import Path
-from github_task_executor import GitHubTaskExecutor
-from pr_feedback_handler import PRFeedbackHandler
+
+# Add the scripts directory to Python path
+script_dir = os.path.dirname(os.path.abspath(__file__))
+if script_dir not in sys.path:
+    sys.path.insert(0, script_dir)
+
+# Alternative: try direct import
+try:
+    from github_task_executor import GitHubTaskExecutor
+    from pr_feedback_handler import PRFeedbackHandler
+    from status_reporter import StatusReporter
+except ImportError:
+    # If that fails, try absolute path
+    sys.path.insert(0, '/bot/scripts')
+    from github_task_executor import GitHubTaskExecutor
+    from pr_feedback_handler import PRFeedbackHandler
+    from status_reporter import StatusReporter
 
 class BotOrchestrator:
-    def __init__(self, workspace_dir="/workspace", data_dir="/.bot/data", repo=None):
+    def __init__(self, workspace_dir="/workspace", data_dir="/bot/data", repo=None, bot_id=None):
         self.workspace_dir = workspace_dir
         self.data_dir = data_dir
         self.repo = repo
+        self.bot_id = bot_id or os.getenv('BOT_ID', 'claude-bot')
         
         # Initialize handlers
         self.issue_executor = GitHubTaskExecutor(workspace_dir, data_dir, repo)
         self.pr_handler = PRFeedbackHandler(workspace_dir, data_dir, repo)
+        
+        # Initialize status reporter
+        self.status_reporter = StatusReporter(
+            bot_id=self.bot_id,
+            data_dir=data_dir,
+            status_web_url=os.getenv('STATUS_WEB_URL'),
+            github_token=os.getenv('GITHUB_TOKEN'),
+            status_repo=os.getenv('STATUS_REPO')
+        )
         
         if repo:
             self.issue_executor.repo = repo
@@ -56,20 +83,31 @@ class BotOrchestrator:
         print("✅ Full cycle completed")
         print("=" * 60)
     
-    def start_watching(self, issue_interval=15, pr_interval=30, pr_hours_back=6):
+    def update_status(self):
+        """Update bot status"""
+        try:
+            self.status_reporter.generate_and_publish()
+        except Exception as e:
+            print(f"⚠️  Status update failed: {e}")
+    
+    def start_watching(self, issue_interval=15, pr_interval=30, pr_hours_back=6, status_interval=5):
         """Start continuous monitoring"""
         print(f"🚀 Starting Bot Orchestrator...")
+        print(f"Bot ID: {self.bot_id}")
         print(f"Repository: {self.repo}")
         print(f"Issue check interval: {issue_interval} minutes")
         print(f"PR feedback interval: {pr_interval} minutes")
+        print(f"Status update interval: {status_interval} minutes")
         print(f"PR activity window: {pr_hours_back} hours")
         
         # Schedule tasks
         schedule.every(issue_interval).minutes.do(self.process_issues)
         schedule.every(pr_interval).minutes.do(lambda: self.process_pr_feedback(pr_hours_back))
+        schedule.every(status_interval).minutes.do(self.update_status)
         
-        # Run initial cycle
+        # Run initial cycle and status update
         self.run_full_cycle(pr_hours_back)
+        self.update_status()
         
         print(f"\n🔄 Orchestrator started. Press Ctrl+C to stop")
         
@@ -85,9 +123,11 @@ def main():
     parser.add_argument('--workspace', default='/workspace', help='Workspace directory')
     parser.add_argument('--data', default='/.bot/data', help='Bot data directory')
     parser.add_argument('--repo', help='GitHub repository (owner/repo)')
+    parser.add_argument('--bot-id', help='Bot identifier for status reporting')
     parser.add_argument('--issue-interval', type=int, default=15, help='Issue check interval in minutes')
     parser.add_argument('--pr-interval', type=int, default=30, help='PR feedback check interval in minutes')
     parser.add_argument('--pr-hours', type=int, default=6, help='Hours back to check for PR activity')
+    parser.add_argument('--status-interval', type=int, default=5, help='Status update interval in minutes')
     parser.add_argument('--once', action='store_true', help='Run once and exit (no continuous watching)')
     
     args = parser.parse_args()
@@ -102,14 +142,15 @@ def main():
             print("Please specify --repo owner/repository")
             return
     
-    orchestrator = BotOrchestrator(args.workspace, args.data, args.repo)
+    orchestrator = BotOrchestrator(args.workspace, args.data, args.repo, args.bot_id)
     
     if args.once:
         # Run once and exit
         orchestrator.run_full_cycle(args.pr_hours)
+        orchestrator.update_status()
     else:
         # Start continuous monitoring
-        orchestrator.start_watching(args.issue_interval, args.pr_interval, args.pr_hours)
+        orchestrator.start_watching(args.issue_interval, args.pr_interval, args.pr_hours, args.status_interval)
 
 if __name__ == "__main__":
     main()

@@ -1,0 +1,165 @@
+# .NET 8 + Node.js 10.13 Project Configuration for Claude Bot
+# Copy this file to config/project-config.yml and customize for your project
+
+project:
+  name: ".NET 8 Web API with Node.js Frontend"
+  repository: "owner/dotnet-project"
+  
+  # Runtime requirements
+  runtime: "dotnet8-node10"
+  
+  # Project setup commands (run once when bot starts)
+  setup_commands:
+    - "dotnet restore"
+    - "npm install"
+    - "dotnet tool restore"
+  
+  # Project-specific build and test commands
+  build_command: "dotnet build && npm run build"
+  test_command: "dotnet test && npm test"
+  lint_command: "dotnet format --verify-no-changes && npm run lint"
+  
+  # Development commands
+  dev_command: "dotnet watch run"
+  
+  # Directories to focus on for changes
+  source_directories:
+    - "src/"
+    - "Controllers/"
+    - "Models/"
+    - "Services/"
+    - "wwwroot/"
+    - "ClientApp/"
+  
+  # File patterns to exclude from bot changes
+  exclude_patterns:
+    - "*.lock"
+    - "node_modules/"
+    - "bin/"
+    - "obj/"
+    - "dist/"
+    - "build/"
+    - "*.min.js"
+    - "*.min.css"
+    - "appsettings.json"
+    - "appsettings.*.json"
+
+bot:
+  # Custom labels for this project
+  labels:
+    trigger: "claude-bot"
+    priority_high: "priority:high"
+    priority_low: "priority:low"
+    dotnet: "dotnet"
+    frontend: "frontend"
+  
+  # Project-specific bot behavior
+  auto_merge: false
+  require_tests: true
+  run_build_before_pr: true
+  run_migrations: false  # Set to true if EF migrations should be applied
+  
+  # Custom Claude instructions for this .NET project
+  context: |
+    This is a .NET 8 Web API project with a Node.js 10.13 frontend. Please:
+    
+    **General Guidelines:**
+    - Follow C# and .NET conventions (PascalCase for classes/methods, camelCase for fields)
+    - Use async/await patterns for I/O operations
+    - Implement proper error handling and logging
+    - Follow RESTful API principles for controllers
+    
+    **Backend (.NET 8):**
+    - Use Entity Framework Core for data access if applicable
+    - Implement dependency injection through the built-in container
+    - Add XML documentation comments for public APIs
+    - Use Data Annotations or Fluent API for model validation
+    - Follow the repository pattern for data access
+    - Use ILogger for logging, not Console.WriteLine
+    
+    **Frontend (Node.js 10.13):**
+    - Use ES6+ features where supported
+    - Follow existing JavaScript/TypeScript patterns
+    - Ensure compatibility with Node.js 10.13
+    - Use npm scripts defined in package.json
+    
+    **Testing:**
+    - Write unit tests using xUnit for .NET code
+    - Use appropriate JavaScript testing framework for frontend
+    - Mock external dependencies
+    - Aim for good test coverage
+    
+    **Security:**
+    - Use HTTPS
+    - Implement proper authentication/authorization
+    - Validate all inputs
+    - Use parameterized queries to prevent SQL injection
+    - Don't expose sensitive information in error messages
+
+github:
+  # Default branch
+  default_branch: "main"
+  
+  # PR template for .NET projects
+  pr_template: |
+    ## Automated .NET Project Fix
+    
+    ### Changes Made
+    {changes_summary}
+    
+    ### Testing Checklist
+    - [ ] .NET unit tests pass (`dotnet test`)
+    - [ ] Frontend tests pass (`npm test`)
+    - [ ] Build succeeds (`dotnet build && npm run build`)
+    - [ ] No linting errors (`dotnet format --verify-no-changes && npm run lint`)
+    - [ ] Manual testing completed
+    
+    ### .NET Specific Checks
+    - [ ] Entity Framework migrations reviewed (if applicable)
+    - [ ] API documentation updated (if applicable)
+    - [ ] Configuration changes documented
+    - [ ] Security implications reviewed
+    
+    ### Frontend Specific Checks
+    - [ ] Node.js 10.13 compatibility maintained
+    - [ ] No breaking changes to existing APIs
+    - [ ] Browser compatibility maintained
+    
+    ### Review Notes
+    Please review the changes and provide feedback if adjustments are needed.
+    The bot will automatically apply requested changes when mentioned with @claude-bot.
+    
+    **Runtime Environment:**
+    - .NET 8 SDK
+    - Node.js 10.13
+    - npm 6.4.1
+    
+    Closes #{issue_number}
+
+# Environment-specific settings
+environments:
+  development:
+    database_provider: "LocalDB"
+    node_env: "development"
+    
+  production:
+    database_provider: "SqlServer"
+    node_env: "production"
+
+# Common .NET project patterns to recognize
+patterns:
+  api_controllers:
+    - "Controllers/*Controller.cs"
+  models:
+    - "Models/*.cs"
+    - "DTOs/*.cs"
+  services:
+    - "Services/*Service.cs"
+    - "Services/Interfaces/I*Service.cs"
+  data_access:
+    - "Data/*Context.cs"
+    - "Repositories/*Repository.cs"
+  frontend:
+    - "wwwroot/js/*.js"
+    - "ClientApp/src/**/*.js"
+    - "ClientApp/src/**/*.ts"

@@ -1,5 +1,6 @@
 # Environment configuration
 .env
+.env.dotnet
 
 # Bot data (if running locally)
 data/

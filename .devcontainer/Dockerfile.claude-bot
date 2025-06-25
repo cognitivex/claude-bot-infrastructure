@@ -25,8 +25,12 @@ ARG USERNAME=bot
 ARG USER_UID=1000
 ARG USER_GID=$USER_UID
 
-RUN addgroup -g $USER_GID $USERNAME \
-    && adduser -D -u $USER_UID -G $USERNAME $USERNAME
+RUN addgroup -g $USER_GID $USERNAME 2>/dev/null || \
+    (getent group $USER_GID >/dev/null && addgroup $USERNAME) || \
+    addgroup $USERNAME \
+    && adduser -D -u $USER_UID -G $USERNAME $USERNAME 2>/dev/null || \
+    (id $USER_UID >/dev/null 2>&1 && usermod -l $USERNAME -d /home/$USERNAME $(id -nu $USER_UID)) || \
+    adduser -D -G $USERNAME $USERNAME
 
 # Create bot directories
 RUN mkdir -p /bot/data /bot/scripts /bot/logs \
@@ -36,7 +40,7 @@ RUN mkdir -p /bot/data /bot/scripts /bot/logs \
 RUN npm install -g @anthropic-ai/claude-code
 
 # Install Python packages for automation
-RUN pip3 install --no-cache-dir \
+RUN pip3 install --no-cache-dir --break-system-packages \
     requests \
     pyyaml \
     python-dotenv \

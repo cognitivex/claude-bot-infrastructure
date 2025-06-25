@@ -1,0 +1,35 @@
+# Cloudflare Tunnel Configuration for Claude Bot Status Dashboard
+# 
+# Instructions:
+# 1. Install cloudflared: https://developers.cloudflare.com/cloudflare-one/connections/connect-apps/install-and-setup/installation/
+# 2. Login: cloudflared tunnel login
+# 3. Create tunnel: cloudflared tunnel create claude-bot-status
+# 4. Update this file with your tunnel UUID and domain
+# 5. Route traffic: cloudflared tunnel route dns claude-bot-status status.yourdomain.com
+# 6. Run: cloudflared tunnel --config ./cloudflare-tunnel.yml run claude-bot-status
+
+tunnel: YOUR_TUNNEL_UUID_HERE
+credentials-file: /path/to/YOUR_TUNNEL_UUID_HERE.json
+
+# Map your custom domain to the local status web service
+ingress:
+  # Main status dashboard
+  - hostname: status.yourdomain.com
+    service: http://localhost:8080
+    
+  # API access (optional, for direct API calls)
+  - hostname: status-api.yourdomain.com
+    service: http://localhost:8080
+    originRequest:
+      httpHostHeader: localhost:8080
+  
+  # Catch-all rule (required)
+  - service: http_status:404
+
+# Optional: Additional tunnel settings
+warp-routing:
+  enabled: false
+
+# Logging
+loglevel: info
+logfile: /var/log/cloudflared.log

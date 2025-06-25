@@ -1,0 +1,10 @@
+detected_at: '2025-06-25T13:02:32.470118'
+workspace_path: /mnt/d/dev/claude-bot-infrastructure
+detected_platforms:
+  python: '3.8'
+recommended_platforms: python:3.8
+docker_compose_command: ENABLED_PLATFORMS='python:3.8' docker-compose --profile dynamic
+  up -d
+validation:
+  is_valid: true
+  issues: []

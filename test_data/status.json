@@ -1,0 +1,26 @@
+{
+  "bot_id": "test-bot",
+  "timestamp": "2025-06-25T08:23:22.375072",
+  "status": "idle",
+  "uptime": "0m",
+  "health": "idle",
+  "repository": "unknown",
+  "bot_label": "claude-bot",
+  "environment": {
+    "node_version": "unknown",
+    "dotnet_env": "unknown",
+    "check_intervals": {
+      "issues": "15m",
+      "prs": "30m"
+    }
+  },
+  "queued_tasks": 0,
+  "processed_tasks": 0,
+  "queue_details": {
+    "high_priority": 0,
+    "medium_priority": 0,
+    "low_priority": 0,
+    "recent_tasks": []
+  },
+  "recent_activity": []
+}

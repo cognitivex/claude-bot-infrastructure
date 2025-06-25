@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   # Default Node.js bot (existing)
   claude-bot:
@@ -11,6 +9,8 @@ services:
       - bot-logs:/bot/logs
       # Mount SSH config from host (read-only)
       - ~/.ssh:/home/bot/.ssh:ro
+      # Mount project directory (if specified)
+      - ${PROJECT_PATH:-./workspace}:/workspace
     environment:
       # Required: API keys and tokens
       - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
@@ -31,13 +31,20 @@ services:
       
       # Status reporting
       - STATUS_WEB_URL=http://claude-status-web:5000
-      - STATUS_REPO=${STATUS_REPO}
-      - GITHUB_STATUS_TOKEN=${GITHUB_STATUS_TOKEN}
+      
+      # Project configuration  
+      - PROJECT_PATH=/workspace
     command: start-bot.sh
     working_dir: /bot
     restart: unless-stopped
     container_name: claude-bot
     profiles: ["nodejs", "default"]
+    healthcheck:
+      test: ["CMD", "python3", "-c", "import os; exit(0 if os.path.exists('/bot/data') else 1)"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
 
   # .NET 8 + Node.js 10.13 bot (independent)
   claude-bot-dotnet:
@@ -49,6 +56,8 @@ services:
       - bot-logs-dotnet:/bot/logs
       # Mount SSH config from host (read-only)
       - ~/.ssh:/home/bot/.ssh:ro
+      # Mount project directory (if specified)
+      - ${DOTNET_PROJECT_PATH:-./dotnet-workspace}:/workspace
       # .NET specific caches
       - dotnet-nuget-cache:/home/bot/.nuget/packages
       - dotnet-tools-cache:/home/bot/.dotnet/tools
@@ -73,8 +82,9 @@ services:
       
       # Status reporting
       - STATUS_WEB_URL=http://claude-status-web:5000
-      - STATUS_REPO=${STATUS_REPO}
-      - GITHUB_STATUS_TOKEN=${GITHUB_STATUS_TOKEN}
+      
+      # Project configuration
+      - PROJECT_PATH=/workspace
       
       # .NET specific environment
       - DOTNET_ENVIRONMENT=Development
@@ -90,6 +100,12 @@ services:
       - "5001:5001"  # .NET HTTPS
       - "3000:3000"  # Node.js dev server
     profiles: ["dotnet"]
+    healthcheck:
+      test: ["CMD", "python3", "-c", "import os; exit(0 if os.path.exists('/bot/data') and os.path.exists('/workspace') else 1)"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
 
   # Status Web Dashboard
   status-web:

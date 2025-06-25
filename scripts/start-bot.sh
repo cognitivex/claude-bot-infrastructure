@@ -6,6 +6,12 @@ set -e
 
 echo "🤖 Starting Claude Bot Infrastructure..."
 
+# Fix permissions for mounted volumes
+echo "🔧 Setting up permissions..."
+mkdir -p /bot/data /bot/logs /workspace
+chown -R $(id -u):$(id -g) /bot/data /bot/logs 2>/dev/null || true
+chmod -R 755 /bot/data /bot/logs 2>/dev/null || true
+
 # Debug environment
 echo "🔍 Debug: Current working directory: $(pwd)"
 echo "🔍 Debug: PROJECT_PATH env var: $PROJECT_PATH"
@@ -22,7 +28,7 @@ if [ -z "$GITHUB_TOKEN" ]; then
 fi
 
 # Set default values
-PROJECT_PATH=${PROJECT_PATH:-/workspace/repo}
+PROJECT_PATH=${PROJECT_PATH:-/workspace}
 BOT_LABEL=${BOT_LABEL:-claude-bot}
 ISSUE_CHECK_INTERVAL=${ISSUE_CHECK_INTERVAL:-15}
 PR_CHECK_INTERVAL=${PR_CHECK_INTERVAL:-30}
@@ -34,42 +40,56 @@ echo "💬 PR check interval: ${PR_CHECK_INTERVAL}m"
 
 # Check if TARGET_REPO is specified
 if [ -z "$TARGET_REPO" ]; then
-    echo "❌ Error: TARGET_REPO environment variable is required when working with cloned repositories."
+    echo "❌ Error: TARGET_REPO environment variable is required."
     exit 1
 fi
 
-# Clone the repository fresh inside the container
-echo "📥 Cloning repository $TARGET_REPO..."
-
-# Create fresh workspace in a temp location first
-TEMP_CLONE_DIR="/tmp/repo-clone-$$"
-mkdir -p "$TEMP_CLONE_DIR"
-cd "$TEMP_CLONE_DIR"
-
-# Try to clone with authentication if GITHUB_TOKEN is provided
-if [ -n "$GITHUB_TOKEN" ] && [ "$GITHUB_TOKEN" != "dummy_token_for_testing" ]; then
-    echo "🔐 Using GitHub token for authentication..."
-    git clone "https://${GITHUB_TOKEN}@github.com/${TARGET_REPO}.git" .
+# Check if project is mounted or needs to be cloned
+if [ -d "$PROJECT_PATH" ] && [ -n "$(ls -A "$PROJECT_PATH" 2>/dev/null)" ]; then
+    echo "📁 Using mounted project directory at $PROJECT_PATH"
+    cd "$PROJECT_PATH"
+    
+    # Verify it's a git repository
+    if [ ! -d ".git" ]; then
+        echo "⚠️  Mounted directory is not a git repository. Initializing..."
+        git init
+        git remote add origin "https://github.com/${TARGET_REPO}.git"
+    fi
+    
+    # Update the repository
+    echo "🔄 Updating repository..."
+    if [ -n "$GITHUB_TOKEN" ] && [ "$GITHUB_TOKEN" != "dummy_token_for_testing" ]; then
+        git remote set-url origin "https://${GITHUB_TOKEN}@github.com/${TARGET_REPO}.git"
+    fi
+    
+    git fetch origin 2>/dev/null || echo "⚠️  Could not fetch updates (offline mode?)"
+    
 else
-    echo "⚠️  No valid GitHub token - attempting public clone..."
-    git clone "https://github.com/${TARGET_REPO}.git" .
+    echo "📥 Cloning repository $TARGET_REPO to $PROJECT_PATH..."
+    
+    # Ensure parent directory exists
+    mkdir -p "$(dirname "$PROJECT_PATH")"
+    
+    # Clone directly to PROJECT_PATH
+    if [ -n "$GITHUB_TOKEN" ] && [ "$GITHUB_TOKEN" != "dummy_token_for_testing" ]; then
+        echo "🔐 Using GitHub token for authentication..."
+        git clone "https://${GITHUB_TOKEN}@github.com/${TARGET_REPO}.git" "$PROJECT_PATH"
+    else
+        echo "⚠️  No valid GitHub token - attempting public clone..."
+        git clone "https://github.com/${TARGET_REPO}.git" "$PROJECT_PATH"
+    fi
+    
+    if [ $? -ne 0 ]; then
+        echo "❌ Error: Failed to clone repository $TARGET_REPO"
+        echo "   Make sure the repository exists and you have access to it"
+        echo "   For private repositories, ensure GITHUB_TOKEN is set with proper permissions"
+        exit 1
+    fi
+    
+    cd "$PROJECT_PATH"
 fi
 
-if [ $? -ne 0 ]; then
-    echo "❌ Error: Failed to clone repository $TARGET_REPO"
-    echo "   Make sure the repository exists and you have access to it"
-    echo "   For private repositories, ensure GITHUB_TOKEN is set with proper permissions"
-    exit 1
-fi
-
-# Move to final location
-echo "📁 Moving repository to $PROJECT_PATH..."
-mkdir -p "$(dirname "$PROJECT_PATH")"
-rm -rf "$PROJECT_PATH" 2>/dev/null || true
-mv "$TEMP_CLONE_DIR" "$PROJECT_PATH"
-cd "$PROJECT_PATH"
-
-echo "✅ Repository cloned successfully"
+echo "✅ Project ready at $PROJECT_PATH"
 
 # Check if we can access the repository
 echo "🔐 Checking GitHub access..."

@@ -6,9 +6,9 @@ This module provides intelligent platform detection, version resolution,
 and runtime management for the Claude Bot Infrastructure.
 
 Usage:
-    python3 platform-manager.py --detect /workspace
-    python3 platform-manager.py --validate "nodejs:18.16,dotnet:8.0"
-    python3 platform-manager.py --generate-config /workspace --output platforms.detected.yml
+    python3 platform_manager.py --detect /workspace
+    python3 platform_manager.py --validate "nodejs:18.16,dotnet:8.0"
+    python3 platform_manager.py --generate-config /workspace --output platforms.detected.yml
 """
 
 import argparse

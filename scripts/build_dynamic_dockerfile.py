@@ -107,7 +107,7 @@ class DockerfileBuilder:
         # Header
         lines.extend([
             "# Generated Multi-Platform Dockerfile",
-            f"# Platforms: {', '.join([f'{p[\"name\"]}:{p[\"version\"]}' for p in platforms])}",
+            f"# Platforms: {', '.join([f'{p['name']}:{p['version']}' for p in platforms])}",
             f"# Generated at: {os.popen('date').read().strip()}",
             "",
             "ARG BASE_IMAGE=ubuntu:22.04",

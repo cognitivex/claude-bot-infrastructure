@@ -148,9 +148,9 @@ detect_platforms() {
     if [ "$PLATFORM_SPEC" = "auto" ]; then
         log_info "Auto-detecting platforms from workspace: $workspace_path"
         
-        if [ -x "$PROJECT_ROOT/scripts/platform-manager.py" ]; then
+        if [ -x "$PROJECT_ROOT/scripts/platform_manager.py" ]; then
             local detected_platforms
-            detected_platforms=$(python3 "$PROJECT_ROOT/scripts/platform-manager.py" detect "$workspace_path" 2>/dev/null | grep "Detected platforms:" | cut -d: -f2- | xargs || echo "")
+            detected_platforms=$(python3 "$PROJECT_ROOT/scripts/platform_manager.py" detect "$workspace_path" 2>/dev/null | grep "Detected platforms:" | cut -d: -f2- | xargs || echo "")
             
             if [ -n "$detected_platforms" ]; then
                 PLATFORM_SPEC="$detected_platforms"
@@ -177,8 +177,8 @@ validate_platforms() {
     fi
     
     # Validate using platform manager
-    if [ -x "$PROJECT_ROOT/scripts/platform-manager.py" ]; then
-        if python3 "$PROJECT_ROOT/scripts/platform-manager.py" validate "$PLATFORM_SPEC"; then
+    if [ -x "$PROJECT_ROOT/scripts/platform_manager.py" ]; then
+        if python3 "$PROJECT_ROOT/scripts/platform_manager.py" validate "$PLATFORM_SPEC"; then
             log_success "Platform specification is valid"
             return 0
         else
@@ -197,8 +197,8 @@ generate_platform_config() {
         log_info "Generating platform configuration..."
         
         local workspace_path="${PROJECT_PATH:-./workspace}"
-        if [ -x "$PROJECT_ROOT/scripts/platform-manager.py" ]; then
-            python3 "$PROJECT_ROOT/scripts/platform-manager.py" generate "$workspace_path" \
+        if [ -x "$PROJECT_ROOT/scripts/platform_manager.py" ]; then
+            python3 "$PROJECT_ROOT/scripts/platform_manager.py" generate "$workspace_path" \
                 --output "$PROJECT_ROOT/platforms.detected.yml"
             log_success "Platform configuration generated"
         else

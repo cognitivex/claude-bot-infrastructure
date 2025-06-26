@@ -1,0 +1,224 @@
+name: Bot Integration Tests
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+  workflow_dispatch:
+    inputs:
+      test_level:
+        description: 'Test level to run'
+        required: false
+        default: 'integration'
+        type: choice
+        options:
+        - unit
+        - integration
+        - full
+  schedule:
+    - cron: '0 6 * * 1'  # Weekly on Monday at 6 AM UTC
+
+env:
+  PYTHON_VERSION: '3.12'
+  DOCKER_BUILDKIT: 1
+  COMPOSE_DOCKER_CLI_BUILD: 1
+
+jobs:
+  setup:
+    runs-on: ubuntu-latest
+    outputs:
+      test-level: ${{ steps.determine-tests.outputs.test-level }}
+      should-run-integration: ${{ steps.determine-tests.outputs.should-run-integration }}
+    steps:
+    - name: Determine test level
+      id: determine-tests
+      run: |
+        if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+          echo "test-level=${{ github.event.inputs.test_level }}" >> $GITHUB_OUTPUT
+        elif [ "${{ github.event_name }}" = "schedule" ]; then
+          echo "test-level=full" >> $GITHUB_OUTPUT
+        elif [ "${{ github.event_name }}" = "pull_request" ]; then
+          echo "test-level=integration" >> $GITHUB_OUTPUT
+        else
+          echo "test-level=integration" >> $GITHUB_OUTPUT
+        fi
+        
+        # Determine if we should run integration tests
+        if [[ "${{ github.event_name }}" != "pull_request" || "${{ github.event.pull_request.draft }}" != "true" ]]; then
+          echo "should-run-integration=true" >> $GITHUB_OUTPUT
+        else
+          echo "should-run-integration=false" >> $GITHUB_OUTPUT
+        fi
+
+  unit-tests:
+    runs-on: ubuntu-latest
+    needs: setup
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ env.PYTHON_VERSION }}
+
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install pytest pytest-cov pytest-xdist
+        pip install -r requirements.txt
+
+    - name: Run unit tests
+      run: |
+        python -m pytest tests/unit/ -v --cov=scripts --cov-report=xml --cov-report=term
+
+    - name: Upload coverage to Codecov
+      uses: codecov/codecov-action@v3
+      if: always()
+      with:
+        files: ./coverage.xml
+        flags: unittests
+        name: codecov-umbrella
+
+  integration-tests:
+    runs-on: ubuntu-latest
+    needs: [setup, unit-tests]
+    if: needs.setup.outputs.should-run-integration == 'true'
+    services:
+      docker:
+        image: docker:dind
+        options: --privileged
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ env.PYTHON_VERSION }}
+
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v3
+
+    - name: Install GitHub CLI
+      run: |
+        type -p curl >/dev/null || (sudo apt update && sudo apt install curl -y)
+        curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg | sudo dd of=/usr/share/keyrings/githubcli-archive-keyring.gpg
+        sudo chmod go+r /usr/share/keyrings/githubcli-archive-keyring.gpg
+        echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main" | sudo tee /etc/apt/sources.list.d/github-cli.list > /dev/null
+        sudo apt update
+        sudo apt install gh -y
+
+    - name: Install Python dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install pytest pytest-asyncio requests pyyaml python-dotenv
+
+    - name: Create test environment file
+      run: |
+        cat > .env.test << EOF
+        # Test Environment Configuration
+        PROJECT_PATH=.
+        TARGET_REPO=${{ github.repository }}
+        BOT_LABEL=claude-bot-test
+        ISSUE_CHECK_INTERVAL=1
+        PR_CHECK_INTERVAL=1
+        ANTHROPIC_API_KEY=${{ secrets.ANTHROPIC_API_KEY }}
+        GITHUB_TOKEN=${{ secrets.GITHUB_TOKEN }}
+        GIT_AUTHOR_NAME=Claude Bot Test
+        GIT_AUTHOR_EMAIL=test@example.com
+        GIT_COMMITTER_NAME=Claude Bot Test
+        GIT_COMMITTER_EMAIL=test@example.com
+        EOF
+
+    - name: Build Docker images
+      run: |
+        docker-compose build --parallel
+
+    - name: Start bot infrastructure
+      run: |
+        cp .env.test .env
+        docker-compose --profile nodejs up -d
+        
+        # Wait for services to be healthy
+        timeout 120 bash -c 'until docker-compose ps | grep -q "healthy"; do sleep 5; done'
+
+    - name: Run integration tests
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+      run: |
+        python -m pytest tests/integration/ -v --tb=short
+      timeout-minutes: 15
+
+    - name: Check bot status
+      if: always()
+      run: |
+        echo "=== Bot Status ==="
+        curl -s http://localhost:8080/api/status | python -m json.tool || echo "Status API not available"
+        
+        echo "=== Docker Container Status ==="
+        docker-compose ps
+        
+        echo "=== Bot Logs ==="
+        docker-compose logs claude-bot --tail=50
+
+    - name: Collect test artifacts
+      if: always()
+      run: |
+        mkdir -p test-artifacts
+        docker-compose logs > test-artifacts/docker-logs.txt
+        docker-compose ps > test-artifacts/container-status.txt
+        curl -s http://localhost:8080/api/status > test-artifacts/bot-status.json || echo "Status API not available"
+
+    - name: Upload test artifacts
+      uses: actions/upload-artifact@v3
+      if: always()
+      with:
+        name: integration-test-artifacts
+        path: test-artifacts/
+        retention-days: 7
+
+    - name: Cleanup
+      if: always()
+      run: |
+        docker-compose down -v
+        docker system prune -f
+
+  security-scan:
+    runs-on: ubuntu-latest
+    needs: unit-tests
+    if: github.event_name != 'pull_request' || github.event.pull_request.draft != true
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Run Trivy vulnerability scanner
+      uses: aquasecurity/trivy-action@master
+      with:
+        scan-type: 'fs'
+        scan-ref: '.'
+        format: 'sarif'
+        output: 'trivy-results.sarif'
+
+    - name: Upload Trivy scan results to GitHub Security tab
+      uses: github/codeql-action/upload-sarif@v2
+      if: always()
+      with:
+        sarif_file: 'trivy-results.sarif'
+
+  notify:
+    runs-on: ubuntu-latest
+    needs: [unit-tests, integration-tests, security-scan]
+    if: always() && (needs.unit-tests.result == 'failure' || needs.integration-tests.result == 'failure')
+    
+    steps:
+    - name: Notify on failure
+      run: |
+        echo "❌ Tests failed for commit ${{ github.sha }}"
+        echo "Unit tests: ${{ needs.unit-tests.result }}"
+        echo "Integration tests: ${{ needs.integration-tests.result }}"
+        echo "Security scan: ${{ needs.security-scan.result }}"

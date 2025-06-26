@@ -1,5 +1,62 @@
 services:
-  # Default Node.js bot (existing)
+  # Multi-Platform Dynamic Bot (NEW)
+  claude-bot-dynamic:
+    build:
+      context: .
+      dockerfile: .devcontainer/Dockerfile.dynamic
+      args:
+        PLATFORMS: ${ENABLED_PLATFORMS:-nodejs:18.16.0}
+        BASE_IMAGE: ${BASE_IMAGE:-ubuntu:22.04}
+    volumes:
+      - bot-data:/bot/data
+      - bot-logs:/bot/logs
+      # Mount SSH config from host (read-only)
+      - ~/.ssh:/home/bot/.ssh:ro
+      # Mount project directory (if specified)
+      - ${PROJECT_PATH:-./workspace}:/workspace
+    environment:
+      # Required: API keys and tokens
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+      - GITHUB_TOKEN=${GITHUB_TOKEN}
+      
+      # Git configuration
+      - GIT_AUTHOR_NAME=${GIT_AUTHOR_NAME:-Claude Bot}
+      - GIT_AUTHOR_EMAIL=${GIT_AUTHOR_EMAIL:-claude-bot@example.com}
+      - GIT_COMMITTER_NAME=${GIT_COMMITTER_NAME:-Claude Bot}
+      - GIT_COMMITTER_EMAIL=${GIT_COMMITTER_EMAIL:-claude-bot@example.com}
+      
+      # Bot configuration
+      - TARGET_REPO=${TARGET_REPO}
+      - BOT_LABEL=${BOT_LABEL:-claude-bot}
+      - BOT_ID=${BOT_ID:-claude-bot-dynamic}
+      - ISSUE_CHECK_INTERVAL=${ISSUE_CHECK_INTERVAL:-15}
+      - PR_CHECK_INTERVAL=${PR_CHECK_INTERVAL:-30}
+      
+      # Platform configuration
+      - ENABLED_PLATFORMS=${ENABLED_PLATFORMS:-nodejs:18.16.0}
+      - AUTO_DETECT_PLATFORMS=${AUTO_DETECT_PLATFORMS:-true}
+      - PLATFORMS_CONFIG=/bot/config/platforms.yml
+      
+      # Status reporting
+      - STATUS_WEB_URL=http://claude-status-web:5000
+      
+      # Project configuration
+      - PROJECT_PATH=/workspace
+      - WORKSPACE_PATH=/workspace
+      
+      # Environment profile
+      - ENVIRONMENT_PROFILE=${ENVIRONMENT_PROFILE:-standard}
+    restart: unless-stopped
+    container_name: claude-bot-dynamic
+    profiles: ["dynamic", "multi-platform"]
+    healthcheck:
+      test: ["CMD", "/bot/scripts/health-check-platforms.sh"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+
+  # Default Node.js bot (LEGACY - for backward compatibility)
   claude-bot:
     build:
       context: .
@@ -38,7 +95,7 @@ services:
     working_dir: /bot
     restart: unless-stopped
     container_name: claude-bot
-    profiles: ["nodejs", "default"]
+    profiles: ["nodejs", "legacy"]
     healthcheck:
       test: ["CMD", "python3", "-c", "import os; exit(0 if os.path.exists('/bot/data') else 1)"]
       interval: 30s
@@ -46,7 +103,7 @@ services:
       retries: 3
       start_period: 30s
 
-  # .NET 8 + Node.js 10.13 bot (independent)
+  # .NET 8 + Node.js 10.13 bot (LEGACY - for backward compatibility)
   claude-bot-dotnet:
     build:
       context: .
@@ -99,7 +156,7 @@ services:
       - "5000:5000"  # .NET HTTP
       - "5001:5001"  # .NET HTTPS
       - "3000:3000"  # Node.js dev server
-    profiles: ["dotnet"]
+    profiles: ["dotnet", "legacy"]
     healthcheck:
       test: ["CMD", "python3", "-c", "import os; exit(0 if os.path.exists('/bot/data') and os.path.exists('/workspace') else 1)"]
       interval: 30s

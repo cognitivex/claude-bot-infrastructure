@@ -1,0 +1,22 @@
+services:
+  claude-bot:
+    volumes:
+      - bot-data:/bot/data
+      - bot-logs:/bot/logs
+      # Use current directory as workspace instead of PROJECT_PATH to avoid mount issues
+      - .:/workspace
+      # Mount scripts directory to use current scripts instead of container's old ones
+      - ./scripts:/bot/scripts:ro
+    # Remove SSH mount for WSL compatibility
+    
+  claude-bot-dynamic:
+    volumes:
+      - bot-data:/bot/data
+      - bot-logs:/bot/logs
+      # Use current directory as workspace instead of PROJECT_PATH to avoid mount issues
+      - .:/workspace
+    # Remove SSH mount for WSL compatibility
+
+volumes:
+  bot-data:
+  bot-logs:

@@ -1,0 +1,102 @@
+{
+  "minimal_test": {
+    "description": "Minimal test environment for basic functionality",
+    "environment": {
+      "PROJECT_PATH": ".",
+      "TARGET_REPO": "test/minimal-repo",
+      "BOT_LABEL": "claude-bot-test",
+      "ISSUE_CHECK_INTERVAL": "1",
+      "PR_CHECK_INTERVAL": "1",
+      "GIT_AUTHOR_NAME": "Claude Bot Test",
+      "GIT_AUTHOR_EMAIL": "test@example.com"
+    },
+    "required_secrets": ["ANTHROPIC_API_KEY", "GITHUB_TOKEN"],
+    "optional_config": {},
+    "timeout_seconds": 60
+  },
+  
+  "integration_test": {
+    "description": "Full integration test environment",
+    "environment": {
+      "PROJECT_PATH": ".",
+      "TARGET_REPO": "cognitivex/claude-bot-infrastructure",
+      "BOT_LABEL": "claude-bot-test",
+      "ISSUE_CHECK_INTERVAL": "2",
+      "PR_CHECK_INTERVAL": "2",
+      "GIT_AUTHOR_NAME": "Claude Bot Integration Test",
+      "GIT_AUTHOR_EMAIL": "integration-test@example.com",
+      "GIT_COMMITTER_NAME": "Claude Bot Integration Test",
+      "GIT_COMMITTER_EMAIL": "integration-test@example.com"
+    },
+    "required_secrets": ["ANTHROPIC_API_KEY", "GITHUB_TOKEN"],
+    "optional_config": {
+      "STATUS_WEB_URL": "http://localhost:8080"
+    },
+    "timeout_seconds": 300
+  },
+  
+  "performance_test": {
+    "description": "Performance testing environment with optimized settings",
+    "environment": {
+      "PROJECT_PATH": ".",
+      "TARGET_REPO": "test/performance-repo",
+      "BOT_LABEL": "claude-bot-perf",
+      "ISSUE_CHECK_INTERVAL": "1",
+      "PR_CHECK_INTERVAL": "1",
+      "GIT_AUTHOR_NAME": "Claude Bot Performance Test",
+      "GIT_AUTHOR_EMAIL": "perf-test@example.com"
+    },
+    "required_secrets": ["ANTHROPIC_API_KEY", "GITHUB_TOKEN"],
+    "optional_config": {
+      "LOG_LEVEL": "WARNING",
+      "PARALLEL_PROCESSING": "true"
+    },
+    "timeout_seconds": 120,
+    "concurrent_tasks": 5
+  },
+  
+  "error_handling_test": {
+    "description": "Environment designed to test error handling and recovery",
+    "environment": {
+      "PROJECT_PATH": ".",
+      "TARGET_REPO": "test/error-repo",
+      "BOT_LABEL": "claude-bot-error",
+      "ISSUE_CHECK_INTERVAL": "1",
+      "PR_CHECK_INTERVAL": "1",
+      "GIT_AUTHOR_NAME": "Claude Bot Error Test",
+      "GIT_AUTHOR_EMAIL": "error-test@example.com"
+    },
+    "required_secrets": ["ANTHROPIC_API_KEY"],
+    "optional_config": {
+      "GITHUB_TOKEN": "invalid-token-for-testing",
+      "SIMULATE_FAILURES": "true"
+    },
+    "timeout_seconds": 180,
+    "expected_failures": true
+  },
+  
+  "security_test": {
+    "description": "Security-focused test environment",
+    "environment": {
+      "PROJECT_PATH": "/tmp/restricted-workspace",
+      "TARGET_REPO": "test/security-repo",
+      "BOT_LABEL": "claude-bot-security",
+      "ISSUE_CHECK_INTERVAL": "5",
+      "PR_CHECK_INTERVAL": "5",
+      "GIT_AUTHOR_NAME": "Claude Bot Security Test",
+      "GIT_AUTHOR_EMAIL": "security-test@example.com"
+    },
+    "required_secrets": ["ANTHROPIC_API_KEY", "GITHUB_TOKEN"],
+    "optional_config": {
+      "RESTRICTED_MODE": "true",
+      "ALLOWED_FILE_TYPES": ".py,.md,.txt,.json,.yml",
+      "MAX_FILE_SIZE": "1048576"
+    },
+    "timeout_seconds": 300,
+    "security_constraints": {
+      "no_system_commands": true,
+      "no_network_access": false,
+      "restricted_file_access": true
+    }
+  }
+}

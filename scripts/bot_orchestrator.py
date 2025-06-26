@@ -42,9 +42,7 @@ class BotOrchestrator:
         self.status_reporter = StatusReporter(
             bot_id=self.bot_id,
             data_dir=data_dir,
-            status_web_url=os.getenv('STATUS_WEB_URL'),
-            github_token=os.getenv('GITHUB_TOKEN'),
-            status_repo=os.getenv('STATUS_REPO')
+            status_web_url=os.getenv('STATUS_WEB_URL')
         )
         
         if repo:

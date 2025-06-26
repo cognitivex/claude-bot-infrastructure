@@ -100,7 +100,7 @@ fi
 
 # Setup labels if they don't exist
 echo "🏷️  Setting up GitHub labels..."
-setup_labels.py --repo "$TARGET_REPO" || echo "⚠️  Label setup failed, continuing..."
+cd /bot/scripts && /usr/bin/python3 setup_labels.py --repo "$TARGET_REPO" || echo "⚠️  Label setup failed, continuing..."
 
 # Configure git if not already configured
 if [ -n "$GIT_AUTHOR_NAME" ] && [ -n "$GIT_AUTHOR_EMAIL" ]; then
@@ -129,7 +129,7 @@ echo "   - PR feedback monitoring: every ${PR_CHECK_INTERVAL} minutes"
 echo ""
 
 # Start the main bot orchestrator
-exec bot_orchestrator.py \
+cd /bot/scripts && exec /usr/bin/python3 bot_orchestrator.py \
     --repo "$TARGET_REPO" \
     --data "/bot/data" \
     --issue-interval "$ISSUE_CHECK_INTERVAL" \

@@ -1,0 +1,221 @@
+# Dynamic Multi-Platform Dockerfile
+# Generates container with any combination of runtime platforms
+# Usage: docker build --build-arg PLATFORMS="nodejs:18.16,dotnet:8.0,python:3.11" .
+
+ARG BASE_IMAGE=ubuntu:22.04
+ARG PLATFORMS=""
+
+FROM ${BASE_IMAGE} as base
+
+# Install common system dependencies
+RUN apt-get update && apt-get install -y \
+    curl \
+    wget \
+    git \
+    bash \
+    jq \
+    unzip \
+    ca-certificates \
+    gnupg \
+    lsb-release \
+    build-essential \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install Python 3 (required for bot scripts)
+RUN apt-get update && apt-get install -y \
+    python3 \
+    python3-pip \
+    python3-venv \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install GitHub CLI (required for bot operations)
+RUN curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg | dd of=/usr/share/keyrings/githubcli-archive-keyring.gpg \
+    && chmod go+r /usr/share/keyrings/githubcli-archive-keyring.gpg \
+    && echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main" | tee /etc/apt/sources.list.d/github-cli.list > /dev/null \
+    && apt-get update \
+    && apt-get install gh -y \
+    && rm -rf /var/lib/apt/lists/*
+
+# Create non-root user
+ARG USERNAME=bot
+ARG USER_UID=1000
+ARG USER_GID=$USER_UID
+
+RUN groupadd --gid $USER_GID $USERNAME 2>/dev/null || \
+    (getent group $USER_GID >/dev/null && groupadd $USERNAME) || \
+    groupadd $USERNAME \
+    && useradd --uid $USER_UID --gid $USER_GID -m $USERNAME 2>/dev/null || \
+    (id $USER_UID >/dev/null 2>&1 && usermod -l $USERNAME -d /home/$USERNAME $(id -nu $USER_UID)) || \
+    useradd --gid $USERNAME -m $USERNAME
+
+# Create bot directories
+RUN mkdir -p /bot/data /bot/scripts /bot/logs /bot/config /workspace \
+    && chown -R $USERNAME:$USERNAME /bot /workspace
+
+# Install platform-specific runtimes based on PLATFORMS argument
+# This section is generated dynamically by the build script
+
+# Node.js installation stages
+FROM base as nodejs-10.13
+RUN curl -fsSL https://nodejs.org/dist/v10.13.0/node-v10.13.0-linux-x64.tar.xz | tar -xJ -C /usr/local --strip-components=1
+
+FROM base as nodejs-18.16
+RUN curl -fsSL https://deb.nodesource.com/setup_18.x | bash - \
+    && apt-get install -y nodejs=18.16.* \
+    && rm -rf /var/lib/apt/lists/*
+
+FROM base as nodejs-20.5
+RUN curl -fsSL https://deb.nodesource.com/setup_20.x | bash - \
+    && apt-get install -y nodejs=20.5.* \
+    && rm -rf /var/lib/apt/lists/*
+
+# .NET installation stages
+FROM base as dotnet-6.0
+RUN wget https://packages.microsoft.com/config/ubuntu/22.04/packages-microsoft-prod.deb -O packages-microsoft-prod.deb \
+    && dpkg -i packages-microsoft-prod.deb \
+    && rm packages-microsoft-prod.deb \
+    && apt-get update \
+    && apt-get install -y dotnet-sdk-6.0 \
+    && rm -rf /var/lib/apt/lists/*
+
+FROM base as dotnet-8.0
+RUN wget https://packages.microsoft.com/config/ubuntu/22.04/packages-microsoft-prod.deb -O packages-microsoft-prod.deb \
+    && dpkg -i packages-microsoft-prod.deb \
+    && rm packages-microsoft-prod.deb \
+    && apt-get update \
+    && apt-get install -y dotnet-sdk-8.0 \
+    && rm -rf /var/lib/apt/lists/*
+
+# Java installation stages
+FROM base as java-11
+RUN apt-get update && apt-get install -y openjdk-11-jdk \
+    && rm -rf /var/lib/apt/lists/*
+
+FROM base as java-17
+RUN apt-get update && apt-get install -y openjdk-17-jdk \
+    && rm -rf /var/lib/apt/lists/*
+
+FROM base as java-21
+RUN apt-get update && apt-get install -y openjdk-21-jdk \
+    && rm -rf /var/lib/apt/lists/*
+
+# Python installation stages
+FROM base as python-3.8
+RUN apt-get update && apt-get install -y python3.8 python3.8-pip python3.8-venv \
+    && rm -rf /var/lib/apt/lists/*
+
+FROM base as python-3.11
+RUN apt-get update && apt-get install -y python3.11 python3.11-pip python3.11-venv \
+    && rm -rf /var/lib/apt/lists/*
+
+FROM base as python-3.12
+RUN apt-get update && apt-get install -y python3.12 python3.12-pip python3.12-venv \
+    && rm -rf /var/lib/apt/lists/*
+
+# Go installation stages
+FROM base as golang-1.20
+RUN wget https://golang.org/dl/go1.20.linux-amd64.tar.gz \
+    && tar -C /usr/local -xzf go1.20.linux-amd64.tar.gz \
+    && rm go1.20.linux-amd64.tar.gz
+
+FROM base as golang-1.21
+RUN wget https://golang.org/dl/go1.21.linux-amd64.tar.gz \
+    && tar -C /usr/local -xzf go1.21.linux-amd64.tar.gz \
+    && rm go1.21.linux-amd64.tar.gz
+
+# Rust installation stages
+FROM base as rust-1.75
+RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain 1.75 \
+    && echo 'source ~/.cargo/env' >> ~/.bashrc
+
+FROM base as rust-1.76
+RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain 1.76 \
+    && echo 'source ~/.cargo/env' >> ~/.bashrc
+
+# PHP installation stages
+FROM base as php-8.1
+RUN apt-get update && apt-get install -y php8.1 php8.1-cli php8.1-common php8.1-curl php8.1-mbstring php8.1-xml \
+    && rm -rf /var/lib/apt/lists/* \
+    && curl -sS https://getcomposer.org/installer | php -- --install-dir=/usr/local/bin --filename=composer
+
+FROM base as php-8.2
+RUN apt-get update && apt-get install -y php8.2 php8.2-cli php8.2-common php8.2-curl php8.2-mbstring php8.2-xml \
+    && rm -rf /var/lib/apt/lists/* \
+    && curl -sS https://getcomposer.org/installer | php -- --install-dir=/usr/local/bin --filename=composer
+
+# Ruby installation stages
+FROM base as ruby-3.1
+RUN apt-get update && apt-get install -y ruby3.1 ruby3.1-dev bundler \
+    && rm -rf /var/lib/apt/lists/*
+
+FROM base as ruby-3.2
+RUN apt-get update && apt-get install -y ruby3.2 ruby3.2-dev bundler \
+    && rm -rf /var/lib/apt/lists/*
+
+# Final stage - This will be modified by the build script to include only requested platforms
+FROM base as final
+
+# This section is dynamically generated based on PLATFORMS build argument
+# Example: If PLATFORMS="nodejs:18.16,dotnet:8.0,python:3.11"
+# The build script will generate:
+# COPY --from=nodejs-18.16 /usr/local/bin/node /usr/local/bin/node
+# COPY --from=nodejs-18.16 /usr/local/bin/npm /usr/local/bin/npm
+# COPY --from=dotnet-8.0 /usr/share/dotnet /usr/share/dotnet
+# COPY --from=python-3.11 /usr/bin/python3.11 /usr/bin/python3.11
+
+# Default: Install Node.js 18.16 if no platforms specified
+ARG PLATFORMS
+RUN if [ -z "$PLATFORMS" ]; then \
+        curl -fsSL https://deb.nodesource.com/setup_18.x | bash - && \
+        apt-get install -y nodejs && \
+        rm -rf /var/lib/apt/lists/*; \
+    fi
+
+# Install Claude Code CLI (requires Node.js)
+RUN if command -v npm >/dev/null 2>&1; then \
+        npm install -g @anthropic-ai/claude-code; \
+    fi
+
+# Install Python packages for bot automation
+RUN pip3 install --no-cache-dir --break-system-packages \
+    requests \
+    pyyaml \
+    python-dotenv \
+    schedule \
+    prometheus_client
+
+# Switch to non-root user
+USER $USERNAME
+
+# Set up environment paths
+ENV PATH="/home/$USERNAME/.local/bin:/home/$USERNAME/.cargo/bin:/usr/local/go/bin:${PATH}"
+ENV GOPATH="/home/$USERNAME/go"
+ENV CARGO_HOME="/home/$USERNAME/.cargo"
+ENV RUSTUP_HOME="/home/$USERNAME/.rustup"
+
+# Set working directory
+WORKDIR /workspace
+
+# Copy bot scripts and configuration
+COPY --chown=$USERNAME:$USERNAME scripts/ /bot/scripts/
+COPY --chown=$USERNAME:$USERNAME config/ /bot/config/
+
+# Add bot scripts to PATH
+ENV PATH="/bot/scripts:${PATH}"
+
+# Create initial bot data directories
+RUN mkdir -p /bot/data/tasks /bot/data/queue /bot/data/processed /bot/data/pr_feedback
+
+# Health check script that verifies all requested platforms are available
+COPY --chown=$USERNAME:$USERNAME scripts/health-check-platforms.sh /bot/scripts/
+RUN chmod +x /bot/scripts/health-check-platforms.sh
+
+HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
+    CMD /bot/scripts/health-check-platforms.sh
+
+# Entry point script handles platform initialization
+COPY --chown=$USERNAME:$USERNAME scripts/entrypoint-dynamic.sh /bot/scripts/
+RUN chmod +x /bot/scripts/entrypoint-dynamic.sh
+
+ENTRYPOINT ["/bot/scripts/entrypoint-dynamic.sh"]
+CMD ["start-bot.sh"]

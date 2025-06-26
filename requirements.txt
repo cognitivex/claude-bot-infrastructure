@@ -1,0 +1,25 @@
+# Claude Bot Infrastructure Dependencies
+# Core automation and API libraries
+requests>=2.31.0
+pyyaml>=6.0.1
+python-dotenv>=1.0.0
+schedule>=1.2.0
+
+# Monitoring and metrics
+prometheus_client>=0.17.0
+
+# Development and testing
+pytest>=7.4.0
+pytest-cov>=4.1.0
+pytest-xdist>=3.0.0
+pytest-asyncio>=0.21.0
+black>=23.0.0
+flake8>=6.0.0
+
+# Optional: Enhanced functionality
+click>=8.1.0          # CLI interfaces
+rich>=13.0.0          # Beautiful terminal output
+jinja2>=3.1.0         # Template rendering for dynamic configs
+
+# Optional: TOML support for pyproject.toml parsing
+tomli>=2.0.0; python_version < "3.11"

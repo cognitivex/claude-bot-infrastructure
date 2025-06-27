@@ -1,0 +1,20 @@
+# Development Docker Compose
+# Usage: docker-compose -f docker-compose.yml -f docker-compose.dev.yml up -d
+
+services:
+  claude-orchestrator:
+    # Enable development features
+    volumes:
+      # Mount source code for live editing
+      - ./src:/bot/src
+      - ./config:/bot/config
+      - ./tests:/bot/tests
+    
+    environment:
+      # Development settings
+      - FLASK_ENV=development
+      - DEBUG=true
+      - LOG_LEVEL=DEBUG
+    
+    # Enable hot reload for development
+    restart: unless-stopped

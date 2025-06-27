@@ -1,72 +1,124 @@
-# CLAUDE.md
+# Claude Bot Infrastructure
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+This is a containerized automation system that integrates Claude Code with GitHub repositories to automate development tasks. The bot monitors GitHub issues, executes tasks using Claude Code, and creates pull requests with automated code changes.
 
-## Project Overview
+## 🚀 Quick Start
 
-This is a Claude Bot Infrastructure - a containerized automation system that integrates Claude Code with GitHub repositories to automate development tasks. The bot monitors GitHub issues, executes tasks using Claude Code, and creates pull requests with automated code changes.
+```bash
+# 1. Clone and configure
+git clone <your-repo>
+cd claude-bot-infrastructure
 
-## Architecture
+# 2. Set up secrets (choose one method)
+cp config/examples/.env.example .env
+# Edit .env with your secrets
 
-The system follows a multi-agent orchestration pattern:
+# 3. Start the bot
+docker-compose up -d
 
-- **Bot Orchestrator** (`bot-orchestrator.py`): Master coordinator managing both issue processing and PR feedback cycles
-- **GitHub Task Executor** (`github-task-executor.py`): Handles issue → code → PR pipeline
-- **PR Feedback Handler** (`pr-feedback-handler.py`): Processes code review feedback and applies changes
-- **Support Scripts**: Label setup, status monitoring, and task management
+# 4. Monitor status
+docker logs claude-orchestrator -f
+```
 
-## Development Commands
+## 📁 Project Structure
+
+```
+claude-bot-infrastructure/
+├── src/claude_bot/          # Core application code
+│   ├── orchestrator/        # Bot orchestration logic
+│   ├── executors/          # Task execution (GitHub, PR handling)
+│   ├── platform/           # Multi-platform support
+│   ├── security/           # Secret management
+│   ├── monitoring/         # Status reporting & health checks
+│   └── utils/              # Shared utilities
+├── deployment/             # All deployment configurations
+│   ├── docker/            # Docker Compose files
+│   ├── azure/             # Azure-specific deployment
+│   └── scripts/           # Deployment scripts
+├── config/                # Configuration files
+│   ├── default/          # Default configurations
+│   ├── environments/     # Environment-specific configs
+│   ├── templates/        # Workflow templates
+│   └── examples/         # Example configurations
+├── docs/                 # Documentation
+├── tests/               # All testing
+└── apps/               # Standalone applications
+```
+
+## 🔧 Development Commands
 
 ### Container Operations
 ```bash
-# Start the bot infrastructure
-docker-compose up -d
+# Development mode (live code changes)
+docker-compose -f docker-compose.yml -f docker-compose.dev.yml up -d
 
-# View bot logs
-docker logs claude-bot-infrastructure_claude-bot_1
+# Production mode
+docker-compose -f docker-compose.yml -f docker-compose.prod.yml up -d
 
-# Access bot shell
-docker exec -it claude-bot-infrastructure_claude-bot_1 bash
+# With secure secrets
+docker-compose -f docker-compose.yml -f deployment/docker/docker-compose.secure.yml up -d
 
-# Stop services
-docker-compose down
+# With Azure integration
+docker-compose -f docker-compose.yml -f deployment/docker/docker-compose.azure.yml up -d
 ```
 
 ### Bot Execution
 ```bash
 # One-time setup (run first)
-python scripts/setup-labels.py
+python3 src/tools/setup_labels.py
 
 # Run individual components
-python scripts/github-task-executor.py    # Process issues only
-python scripts/pr-feedback-handler.py     # Handle PR feedback only
-python scripts/bot-orchestrator.py        # Full automation cycle
+python3 -m claude_bot.executors.github_task_executor
+python3 -m claude_bot.executors.pr_feedback_handler  
+python3 -m claude_bot.orchestrator.bot_orchestrator
 
 # Check status and queue
-python scripts/bot-status.py
+python3 src/tools/bot_status.py
 
 # Add manual tasks
-python scripts/add-task.py "Task Name" "Description for Claude"
+python3 src/tools/add_task.py "Task Name" "Description for Claude"
 ```
 
-## Configuration
+## 📖 Documentation
 
-### Required Environment Variables
-- `ANTHROPIC_API_KEY`: Claude Code API access
-- `GITHUB_TOKEN`: GitHub repository access
-- `PROJECT_PATH`: Target repository path
-- `TARGET_REPO`: GitHub repository (owner/name format)
-- `GIT_AUTHOR_NAME` and `GIT_AUTHOR_EMAIL`: Git commit attribution
+- **[Getting Started](docs/getting-started/)** - Installation and first bot setup
+- **[Guides](docs/guides/)** - How-to guides for specific features
+- **[Reference](docs/reference/)** - Technical documentation
+- **[Examples](docs/examples/)** - Example projects and configurations
 
-### Key Configuration Files
-- `.env`: Environment variables (copy from `.env.example`)
-- `config/project-config.example.yml`: Project-specific settings including build commands, test commands, and bot behavior
+### Key Documents
+- **[Secret Management](docs/guides/secret-management.md)** - Secure credential handling
+- **[Azure Setup](docs/guides/azure-setup.md)** - Enterprise Azure deployment
+- **[Multi-Platform](docs/guides/multi-platform.md)** - Supporting multiple tech stacks
+- **[Architecture](docs/reference/architecture.md)** - System design and components
 
-## Git Workflow
+## 🔐 Secret Management
+
+Choose the approach that fits your needs:
+
+| Use Case | Method | Command |
+|----------|--------|---------|
+| **Development** | `.env` file | `docker-compose up -d` |
+| **Production** | Docker Secrets | `deployment/scripts/setup-secrets.sh` |
+| **Enterprise** | Azure Key Vault | `deployment/azure/setup-azure.sh` |
+
+**How it works:** The orchestrator and workers run in the same container, so configuring secrets once automatically provides them to all components.
+
+## 🏗️ Architecture
+
+The system uses a **multi-agent orchestration pattern**:
+
+- **Orchestrator** (`src/claude_bot/orchestrator/`): Master coordinator managing workflows
+- **Executors** (`src/claude_bot/executors/`): Handle issue → code → PR pipeline  
+- **Platform Manager** (`src/claude_bot/platform/`): Multi-platform support (Node.js, .NET, Python)
+- **Security** (`src/claude_bot/security/`): Secure secret management
+- **Monitoring** (`src/claude_bot/monitoring/`): Status reporting and health checks
+
+## 🔄 Git Workflow
 
 The bot creates feature branches and never modifies main branches directly. All changes go through pull requests with structured commit messages and auto-generated PR descriptions.
 
-## GitHub Integration
+## 🏷️ GitHub Integration
 
 Uses GitHub labels for workflow tracking:
 - `claude-bot` (configurable): Triggers bot processing
@@ -74,51 +126,34 @@ Uses GitHub labels for workflow tracking:
 
 The bot responds to PR review comments and @mentions for iterative improvements.
 
-## Docker Architecture
+## 🐳 Multi-Platform Support
 
-Multi-stage Docker setup with:
-- Development container for Claude Code execution
-- Production bot container for automation scripts
-- Volume mounting for project code, git config, and persistent data
-- Alpine-based Node.js environment with Python automation layer
+Supports multiple independent bot instances for different project types:
 
-### Independent Bot Services
-
-The infrastructure supports multiple independent bot instances for different project types:
-
-#### Default Node.js Bot
 ```bash
-# Start default Node.js bot
+# Node.js bot (default)
 docker-compose --profile nodejs up -d
-# or
-docker-compose up -d claude-bot
-```
 
-#### .NET 8 + Node.js 10.13 Bot
-```bash
-# Set up .NET environment
-cp .env.dotnet.example .env.dotnet
-cp config/project-config.dotnet.yml config/project-config.yml
-
-# Start .NET bot (independent instance)
+# .NET 8 + Node.js bot  
 docker-compose --profile dotnet up -d
-# or
-docker-compose up -d claude-bot-dotnet
-```
 
-#### Running Multiple Bots Simultaneously
-```bash
-# Run both bots for different projects
+# Run multiple bots simultaneously
 docker-compose --profile nodejs --profile dotnet up -d
-
-# Check status of both instances
-docker logs claude-bot
-docker logs claude-bot-dotnet
 ```
 
-**Key Features:**
-- Completely independent Docker containers
-- Separate data volumes and caches
-- Different environment configurations
-- No shared dependencies or conflicts
-- .NET bot includes: .NET 8 SDK, Entity Framework tools, Node.js 10.13, and Claude Code with Node.js 18
+## 📊 Monitoring
+
+Access the status dashboard at `http://localhost:8080` after starting the bot.
+
+## 🤝 Contributing
+
+1. Fork the repository
+2. Create a feature branch
+3. Make your changes in the `src/` directory
+4. Add tests in `tests/`
+5. Update documentation in `docs/`
+6. Submit a pull request
+
+## 📄 License
+
+[Your license here]

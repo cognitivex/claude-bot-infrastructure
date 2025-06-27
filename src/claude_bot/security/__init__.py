@@ -1,0 +1,1 @@
+# Claude Bot security module

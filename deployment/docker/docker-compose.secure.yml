@@ -1,0 +1,65 @@
+# Secure Docker Compose Configuration
+# Demonstrates best practices for secret management with workers
+
+version: '3.8'
+
+services:
+  # Orchestrator with secure secret mounting
+  claude-orchestrator:
+    build:
+      context: .
+      dockerfile: .devcontainer/Dockerfile.dynamic
+    volumes:
+      - orchestrator-data:/bot/data
+      - orchestrator-logs:/bot/logs
+      - ${PROJECT_PATH:-./workspace}:/workspace
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    
+    # Secure secret mounting instead of environment variables
+    secrets:
+      - github_token
+      - anthropic_api_key
+      - git_author_name
+      - git_author_email
+    
+    environment:
+      # Only non-sensitive configuration
+      - TARGET_REPO=${TARGET_REPO}
+      - BOT_LABEL=${BOT_LABEL:-claude-bot}
+      - BOT_ID=${BOT_ID:-claude-orchestrator}
+      - PROJECT_PATH=/workspace
+      
+      # Secret sources configuration (tells workers how to find secrets)
+      - SECRET_SOURCES=docker_secrets,azure_keyvault,env_files,env_vars
+      - SECRETS_MODE=docker_secrets
+      
+      # Azure Key Vault (if using)
+      - AZURE_KEYVAULT_NAME=${AZURE_KEYVAULT_NAME}
+      - AZURE_CLIENT_ID=${AZURE_CLIENT_ID}
+      
+    entrypoint: []
+    command: ["bash", "-c", "cd /workspace && python3 /bot/scripts/bot_orchestrator.py"]
+    restart: unless-stopped
+    container_name: claude-orchestrator-secure
+    
+    healthcheck:
+      test: ["CMD", "python3", "-c", "import sys; sys.path.append('/bot/scripts'); from secure_worker_init import init_secure_worker; exit(0 if init_secure_worker() else 1)"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+
+# Secure secret definitions
+secrets:
+  github_token:
+    file: ./data/secrets/github_token
+  anthropic_api_key:
+    file: ./data/secrets/anthropic_api_key
+  git_author_name:
+    file: ./data/secrets/git_author_name
+  git_author_email:
+    file: ./data/secrets/git_author_email
+
+volumes:
+  orchestrator-data:
+  orchestrator-logs:

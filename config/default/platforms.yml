@@ -1,0 +1,358 @@
+# Platform Registry - Defines all supported runtime platforms and versions
+# This file configures the multi-platform runtime system for Claude Bot Infrastructure
+
+metadata:
+  version: "1.0.0"
+  description: "Platform registry for flexible multi-runtime support"
+  last_updated: "2025-06-25"
+
+# Platform definitions with versions, detection patterns, and commands
+platforms:
+  nodejs:
+    name: "Node.js"
+    description: "JavaScript runtime built on Chrome's V8 JavaScript engine"
+    default_version: "18.16.0"
+    supported_versions:
+      - "10.13.0"   # Legacy support
+      - "12.22.12"
+      - "14.21.3"
+      - "16.20.1"
+      - "18.16.0"   # LTS
+      - "18.17.1"
+      - "20.5.0"    # Current
+      - "20.9.0"
+    detection_patterns:
+      - "package.json"
+      - "yarn.lock"
+      - "pnpm-lock.yaml"
+      - "node_modules/"
+      - ".nvmrc"
+    version_detection:
+      # How to detect required version from project files
+      package_json: 
+        path: "package.json"
+        field: "engines.node"
+        fallback: "latest"
+      nvmrc:
+        path: ".nvmrc"
+        content: "version_number"
+    install_commands:
+      apt: "curl -fsSL https://deb.nodesource.com/setup_{major}.x | bash - && apt-get install -y nodejs"
+      alpine: "apk add --no-cache nodejs={version} npm"
+      binary: "curl -fsSLO https://nodejs.org/dist/v{version}/node-v{version}-linux-x64.tar.xz"
+    project_commands:
+      install: "npm install"
+      build: "npm run build"
+      test: "npm test"
+      start: "npm start"
+      dev: "npm run dev"
+    health_check: "node --version"
+    environment_vars:
+      - NODE_ENV
+      - NODE_OPTIONS
+      - NPM_CONFIG_PREFIX
+
+  dotnet:
+    name: ".NET"
+    description: "Free, cross-platform, open-source developer platform"
+    default_version: "8.0"
+    supported_versions:
+      - "6.0"
+      - "7.0"
+      - "8.0"
+      - "9.0"   # Preview
+    detection_patterns:
+      - "*.csproj"
+      - "*.sln"
+      - "*.fsproj"
+      - "*.vbproj"
+      - "global.json"
+      - "Directory.Build.props"
+    version_detection:
+      global_json:
+        path: "global.json"
+        field: "sdk.version"
+      csproj:
+        path: "*.csproj"
+        field: "TargetFramework"
+        regex: "net(\\d+\\.\\d+)"
+    install_commands:
+      apt: "wget -O - https://packages.microsoft.com/keys/microsoft.asc | gpg --dearmor > microsoft.asc.gpg && mv microsoft.asc.gpg /etc/apt/trusted.gpg.d/ && wget https://packages.microsoft.com/config/ubuntu/22.04/prod.list && mv prod.list /etc/apt/sources.list.d/microsoft-prod.list && apt-get update && apt-get install -y dotnet-sdk-{version}"
+      alpine: "apk add --no-cache dotnet{major}-sdk"
+    project_commands:
+      restore: "dotnet restore"
+      build: "dotnet build"
+      test: "dotnet test"
+      run: "dotnet run"
+      publish: "dotnet publish -c Release"
+    health_check: "dotnet --version"
+    environment_vars:
+      - DOTNET_ENVIRONMENT
+      - ASPNETCORE_ENVIRONMENT
+      - DOTNET_CLI_TELEMETRY_OPTOUT
+
+  java:
+    name: "Java"
+    description: "Object-oriented programming language and platform"
+    default_version: "17"
+    supported_versions:
+      - "8"
+      - "11"
+      - "17"    # LTS
+      - "21"    # LTS
+    detection_patterns:
+      - "pom.xml"
+      - "build.gradle"
+      - "build.gradle.kts"
+      - "gradlew"
+      - "mvnw"
+      - "*.java"
+    version_detection:
+      pom_xml:
+        path: "pom.xml"
+        field: "properties.maven.compiler.source"
+      gradle:
+        path: "build.gradle"
+        field: "sourceCompatibility"
+    install_commands:
+      apt: "apt-get update && apt-get install -y openjdk-{version}-jdk"
+      alpine: "apk add --no-cache openjdk{version}-jdk"
+    project_commands:
+      compile_maven: "mvn compile"
+      build_maven: "mvn package"
+      test_maven: "mvn test"
+      compile_gradle: "./gradlew compileJava"
+      build_gradle: "./gradlew build"
+      test_gradle: "./gradlew test"
+    health_check: "java -version"
+    environment_vars:
+      - JAVA_HOME
+      - MAVEN_OPTS
+      - GRADLE_OPTS
+
+  python:
+    name: "Python"
+    description: "High-level, interpreted programming language"
+    default_version: "3.11"
+    supported_versions:
+      - "3.8"
+      - "3.9"
+      - "3.10"
+      - "3.11"
+      - "3.12"
+    detection_patterns:
+      - "requirements.txt"
+      - "requirements-dev.txt"
+      - "pyproject.toml"
+      - "setup.py"
+      - "Pipfile"
+      - "poetry.lock"
+      - "*.py"
+    version_detection:
+      pyproject_toml:
+        path: "pyproject.toml"
+        field: "project.requires-python"
+      runtime_txt:
+        path: "runtime.txt"
+        regex: "python-(\\d+\\.\\d+\\.\\d+)"
+    install_commands:
+      apt: "apt-get update && apt-get install -y python{version} python{version}-pip python{version}-venv"
+      alpine: "apk add --no-cache python{major} py{major}-pip"
+    project_commands:
+      install_pip: "pip install -r requirements.txt"
+      install_pipenv: "pipenv install"
+      install_poetry: "poetry install"
+      test_pytest: "python -m pytest"
+      test_unittest: "python -m unittest"
+      lint: "python -m flake8"
+    health_check: "python --version"
+    environment_vars:
+      - PYTHONPATH
+      - VIRTUAL_ENV
+      - PYTHONDONTWRITEBYTECODE
+
+  golang:
+    name: "Go"
+    description: "Statically typed, compiled programming language"
+    default_version: "1.21"
+    supported_versions:
+      - "1.19"
+      - "1.20"
+      - "1.21"
+      - "1.22"
+    detection_patterns:
+      - "go.mod"
+      - "go.sum"
+      - "*.go"
+      - "Gopkg.toml"
+    version_detection:
+      go_mod:
+        path: "go.mod"
+        field: "go"
+        regex: "go (\\d+\\.\\d+)"
+    install_commands:
+      apt: "wget https://golang.org/dl/go{version}.linux-amd64.tar.gz && tar -C /usr/local -xzf go{version}.linux-amd64.tar.gz"
+      alpine: "apk add --no-cache go"
+    project_commands:
+      build: "go build"
+      test: "go test"
+      mod_tidy: "go mod tidy"
+      mod_download: "go mod download"
+      run: "go run"
+    health_check: "go version"
+    environment_vars:
+      - GOPATH
+      - GOROOT
+      - GOPROXY
+      - GOSUMDB
+
+  rust:
+    name: "Rust"
+    description: "Systems programming language focused on safety and performance"
+    default_version: "1.75"
+    supported_versions:
+      - "1.68"
+      - "1.70"
+      - "1.72"
+      - "1.74"
+      - "1.75"
+      - "1.76"
+    detection_patterns:
+      - "Cargo.toml"
+      - "Cargo.lock"
+      - "*.rs"
+      - "rust-toolchain.toml"
+    version_detection:
+      rust_toolchain:
+        path: "rust-toolchain.toml"
+        field: "toolchain.channel"
+      cargo_toml:
+        path: "Cargo.toml"
+        field: "package.rust-version"
+    install_commands:
+      rustup: "curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain {version}"
+      apt: "curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh"
+    project_commands:
+      build: "cargo build"
+      build_release: "cargo build --release"
+      test: "cargo test"
+      run: "cargo run"
+      check: "cargo check"
+      clippy: "cargo clippy"
+    health_check: "rustc --version"
+    environment_vars:
+      - CARGO_HOME
+      - RUSTUP_HOME
+      - RUST_BACKTRACE
+
+  php:
+    name: "PHP"
+    description: "Server-side scripting language"
+    default_version: "8.2"
+    supported_versions:
+      - "7.4"
+      - "8.0"
+      - "8.1"
+      - "8.2"
+      - "8.3"
+    detection_patterns:
+      - "composer.json"
+      - "composer.lock"
+      - "*.php"
+      - "artisan"     # Laravel
+      - "wp-config.php"  # WordPress
+    version_detection:
+      composer_json:
+        path: "composer.json"
+        field: "require.php"
+    install_commands:
+      apt: "apt-get update && apt-get install -y php{version} php{version}-cli php{version}-common"
+      alpine: "apk add --no-cache php{major} php{major}-cli"
+    project_commands:
+      install: "composer install"
+      test: "vendor/bin/phpunit"
+      serve: "php -S localhost:8000"
+    health_check: "php --version"
+    environment_vars:
+      - PHP_INI_SCAN_DIR
+      - COMPOSER_HOME
+
+  ruby:
+    name: "Ruby"
+    description: "Dynamic, open-source programming language"
+    default_version: "3.2"
+    supported_versions:
+      - "2.7"
+      - "3.0"
+      - "3.1"
+      - "3.2"
+      - "3.3"
+    detection_patterns:
+      - "Gemfile"
+      - "Gemfile.lock"
+      - "*.rb"
+      - ".ruby-version"
+      - "Rakefile"
+    version_detection:
+      ruby_version:
+        path: ".ruby-version"
+        content: "version_number"
+      gemfile:
+        path: "Gemfile"
+        field: "ruby"
+    install_commands:
+      apt: "apt-get update && apt-get install -y ruby{version} ruby{version}-dev"
+      alpine: "apk add --no-cache ruby ruby-dev"
+      rbenv: "rbenv install {version} && rbenv global {version}"
+    project_commands:
+      install: "bundle install"
+      test: "bundle exec rspec"
+      serve: "bundle exec rails server"
+    health_check: "ruby --version"
+    environment_vars:
+      - RUBY_VERSION
+      - BUNDLE_PATH
+      - RAILS_ENV
+
+# Configuration for multi-platform scenarios
+multi_platform:
+  # Common combinations that work well together
+  recommended_combinations:
+    - ["nodejs", "python"]        # Full-stack JavaScript + Python backend
+    - ["nodejs", "dotnet"]        # React frontend + .NET API
+    - ["java", "nodejs"]          # Spring Boot + React
+    - ["golang", "nodejs"]        # Go API + Node.js frontend
+    - ["rust", "nodejs"]          # Rust backend + React frontend
+    - ["python", "nodejs", "rust"] # Data science + web + performance
+  
+  # Combinations that may have conflicts
+  potential_conflicts:
+    - platforms: ["nodejs", "java"]
+      reason: "Port conflicts on 8080, 3000"
+      resolution: "Configure different ports via environment variables"
+    
+    - platforms: ["dotnet", "java"]
+      reason: "Both use JIT compilation, high memory usage"
+      resolution: "Increase container memory limits"
+
+# Default environment settings for different scenarios
+environment_profiles:
+  minimal:
+    description: "Lightweight single-platform setup"
+    max_platforms: 1
+    memory_limit: "1GB"
+    
+  standard:
+    description: "Typical development setup"
+    max_platforms: 2
+    memory_limit: "2GB"
+    
+  advanced:
+    description: "Multi-platform development"
+    max_platforms: 4
+    memory_limit: "4GB"
+    
+  enterprise:
+    description: "Full-featured enterprise setup"
+    max_platforms: 8
+    memory_limit: "8GB"

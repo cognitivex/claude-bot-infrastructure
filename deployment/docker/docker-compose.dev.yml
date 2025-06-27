@@ -1,0 +1,14 @@
+services:
+  claude-orchestrator:
+    volumes:
+      - orchestrator-data:/bot/data
+      - orchestrator-logs:/bot/logs
+      # Use current directory as workspace instead of PROJECT_PATH to avoid mount issues
+      - .:/workspace
+      # Mount scripts directory to use current scripts instead of container's old ones
+      - ./scripts:/bot/scripts:ro
+    # Remove SSH mount for WSL compatibility
+
+volumes:
+  orchestrator-data:
+  orchestrator-logs:

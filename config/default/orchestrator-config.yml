@@ -1,0 +1,227 @@
+# Central Orchestrator Configuration
+# Configuration for the distributed Claude Bot Infrastructure
+
+# Orchestrator Settings
+orchestrator:
+  # Maximum number of concurrent workers
+  max_workers: 3
+  
+  # Intervals (in minutes)
+  discovery_interval: 10      # How often to check for new GitHub issues
+  processing_interval: 2      # How often to process the work queue
+  cleanup_interval: 60        # How often to clean up stale resources
+  status_interval: 30         # How often to update status reports
+  
+  # Bot identification
+  bot_id: "claude-orchestrator"
+  bot_label: "claude-bot"     # GitHub label to watch for
+  
+  # Timeouts
+  task_timeout_minutes: 30    # How long before a task is considered stale
+  worker_timeout_minutes: 60  # How long before a worker is considered stale
+  
+  # Retry configuration
+  max_task_retries: 3
+  retry_delay_minutes: 5
+
+# Work Queue Configuration
+queue:
+  # Queue type: "file" or "redis"
+  type: "file"
+  
+  # File-based queue settings
+  file:
+    queue_directory: "/bot/data/queue"
+    backup_completed_tasks: true
+    completed_retention_days: 7
+  
+  # Redis queue settings (when type = "redis")
+  redis:
+    url: "redis://redis:6379/0"
+    key_prefix: "claude_bot"
+    connection_timeout: 5
+    max_connections: 10
+
+# Worker Configuration
+workers:
+  # Resource limits for worker containers
+  resources:
+    memory_limit: "2g"
+    cpu_limit: 1.0
+    disk_limit: "10g"
+  
+  # Container settings
+  containers:
+    base_image: "claude-bot-dynamic"
+    network_mode: "bridge"
+    auto_remove: true
+    restart_policy: "no"
+  
+  # Platform-specific worker settings
+  platforms:
+    nodejs:
+      default_version: "18.16.0"
+      supported_versions: ["16.20.0", "18.16.0", "20.5.0"]
+      additional_packages: []
+    
+    dotnet:
+      default_version: "8.0"
+      supported_versions: ["6.0", "7.0", "8.0"]
+      additional_packages: ["EntityFramework"]
+    
+    python:
+      default_version: "3.11"
+      supported_versions: ["3.9", "3.10", "3.11", "3.12"]
+      additional_packages: ["requests", "pytest"]
+    
+    java:
+      default_version: "17"
+      supported_versions: ["11", "17", "21"]
+      additional_packages: []
+
+# GitHub Integration
+github:
+  # API settings
+  api_timeout: 30
+  max_retries: 3
+  
+  # Issue processing
+  issues:
+    # Only process issues with these states
+    allowed_states: ["open"]
+    
+    # Skip issues with these labels (in addition to bot status labels)
+    skip_labels: ["wontfix", "duplicate", "invalid"]
+    
+    # Priority mapping from GitHub labels to task priorities
+    priority_labels:
+      urgent: ["urgent", "critical", "p0", "priority:urgent"]
+      high: ["high", "important", "p1", "priority:high"] 
+      medium: ["enhancement", "feature", "p2", "priority:medium"]
+      low: ["documentation", "minor", "p3", "priority:low"]
+  
+  # Status labels used by the bot
+  status_labels:
+    queued: "bot:queued"
+    in_progress: "bot:in-progress"
+    completed: "bot:completed"
+    failed: "bot:failed"
+
+# Platform Detection
+platform_detection:
+  # Enable automatic platform detection from project files
+  auto_detect: true
+  
+  # Platform detection rules
+  detection_rules:
+    nodejs:
+      files: ["package.json", "yarn.lock", "pnpm-lock.yaml", ".nvmrc"]
+      patterns: ["node_modules/"]
+      
+    dotnet:
+      files: ["*.csproj", "*.sln", "*.fsproj", "global.json"]
+      patterns: ["bin/", "obj/"]
+      
+    python:
+      files: ["requirements.txt", "pyproject.toml", "setup.py", "Pipfile"]
+      patterns: ["__pycache__/", "*.pyc"]
+      
+    java:
+      files: ["pom.xml", "build.gradle", "build.gradle.kts"]
+      patterns: ["target/", "build/"]
+      
+    go:
+      files: ["go.mod", "go.sum"]
+      patterns: ["*.go"]
+      
+    rust:
+      files: ["Cargo.toml", "Cargo.lock"]
+      patterns: ["*.rs", "target/"]
+
+# Monitoring and Logging
+monitoring:
+  # Log levels: DEBUG, INFO, WARNING, ERROR, CRITICAL
+  log_level: "INFO"
+  
+  # Log file settings
+  log_files:
+    orchestrator: "/bot/logs/orchestrator.log"
+    workers: "/bot/logs/workers.log"
+    queue: "/bot/logs/queue.log"
+  
+  # Metrics collection
+  metrics:
+    enabled: true
+    collection_interval: 60  # seconds
+    retention_days: 30
+  
+  # Health checks
+  health_checks:
+    enabled: true
+    interval: 30  # seconds
+    timeout: 10   # seconds
+
+# Status Reporting
+status:
+  # Web dashboard settings
+  web_dashboard:
+    enabled: true
+    url: "http://claude-status-web:5000"
+    update_interval: 30  # seconds
+  
+  # Status data retention
+  retention:
+    metrics_days: 30
+    logs_days: 7
+    completed_tasks_days: 7
+  
+  # Notification settings (future enhancement)
+  notifications:
+    enabled: false
+    channels: []
+
+# Security Settings
+security:
+  # Container security
+  containers:
+    # Run containers as non-root user
+    run_as_user: true
+    user_id: 1000
+    group_id: 1000
+    
+    # Security options
+    security_opts:
+      - "no-new-privileges:true"
+    
+    # Read-only root filesystem for workers
+    read_only_root: false
+    
+    # Drop capabilities
+    cap_drop: ["ALL"]
+    cap_add: ["CHOWN", "DAC_OVERRIDE", "SETUID", "SETGID"]
+  
+  # Resource limits
+  limits:
+    # Maximum total memory for all workers
+    max_total_memory: "8g"
+    
+    # Maximum disk usage per worker
+    max_worker_disk: "10g"
+    
+    # Maximum execution time per task
+    max_task_duration: "60m"
+
+# Development and Testing
+development:
+  # Enable debug mode
+  debug: false
+  
+  # Mock external services for testing
+  mock_github: false
+  mock_claude: false
+  
+  # Test mode settings
+  test_mode:
+    enabled: false
+    max_workers: 1
+    task_timeout_minutes: 5

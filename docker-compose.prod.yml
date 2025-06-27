@@ -1,0 +1,23 @@
+# Production Docker Compose
+# Usage: docker-compose -f docker-compose.yml -f docker-compose.prod.yml up -d
+
+services:
+  claude-orchestrator:
+    # Production optimizations
+    environment:
+      - FLASK_ENV=production
+      - DEBUG=false
+      - LOG_LEVEL=INFO
+    
+    # Production restart policy
+    restart: always
+    
+    # Resource limits for production
+    deploy:
+      resources:
+        limits:
+          cpus: '2.0'
+          memory: 4G
+        reservations:
+          cpus: '1.0'
+          memory: 2G

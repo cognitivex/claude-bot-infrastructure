@@ -177,12 +177,13 @@ RUN if command -v npm >/dev/null 2>&1; then \
     fi
 
 # Install Python packages for bot automation
-RUN pip3 install --no-cache-dir --break-system-packages \
+RUN pip3 install --no-cache-dir \
     requests \
     pyyaml \
     python-dotenv \
     schedule \
-    prometheus_client
+    prometheus_client \
+    docker
 
 # Switch to non-root user
 USER $USERNAME

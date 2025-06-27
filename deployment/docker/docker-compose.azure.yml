@@ -1,0 +1,61 @@
+# Azure-specific docker-compose configuration
+# Use: docker-compose -f docker-compose.yml -f docker-compose.azure.yml up -d
+
+version: '3.8'
+
+services:
+  claude-orchestrator:
+    environment:
+      # Azure Key Vault configuration
+      - AZURE_KEYVAULT_NAME=${AZURE_KEYVAULT_NAME:-claude-bot-keyvault}
+      - AZURE_CLIENT_ID=${AZURE_CLIENT_ID}
+      - AZURE_CLIENT_SECRET=${AZURE_CLIENT_SECRET}
+      - AZURE_TENANT_ID=${AZURE_TENANT_ID}
+      
+      # For managed identity (when running in Azure)
+      - AZURE_USE_MANAGED_IDENTITY=${AZURE_USE_MANAGED_IDENTITY:-true}
+      
+      # Override secret sources priority for Azure
+      - SECRET_SOURCES=azure_keyvault,docker_secrets,env_files,env_vars
+      
+      # Azure-specific logging
+      - AZURE_LOG_LEVEL=${AZURE_LOG_LEVEL:-INFO}
+      - AZURE_INSIGHTS_INSTRUMENTATION_KEY=${AZURE_INSIGHTS_INSTRUMENTATION_KEY}
+      
+    # Additional labels for Azure monitoring
+    labels:
+      - "azure.keyvault=${AZURE_KEYVAULT_NAME:-claude-bot-keyvault}"
+      - "azure.resource-group=${AZURE_RESOURCE_GROUP:-claude-bot-rg}"
+      - "azure.managed-identity=${AZURE_CLIENT_ID}"
+    
+    # Health check for Azure monitoring
+    healthcheck:
+      test: ["CMD", "python3", "-c", "import sys; sys.path.append('/bot/scripts'); from secrets_loader import SecretsLoader; SecretsLoader().load_from_azure_keyvault() and print('healthy') or sys.exit(1)"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+
+# Azure-specific volumes for enhanced logging and monitoring
+volumes:
+  orchestrator-data:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: ${AZURE_DATA_PATH:-./data}
+  
+  orchestrator-logs:
+    driver: local
+    driver_opts:
+      type: none  
+      o: bind
+      device: ${AZURE_LOGS_PATH:-./logs}
+
+# Networks for Azure integration
+networks:
+  default:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.20.0.0/16

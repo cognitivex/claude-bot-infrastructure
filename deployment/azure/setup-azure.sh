@@ -52,6 +52,7 @@ check_azure_cli() {
     print_success "Azure CLI is ready"
 }
 
+
 # Function to check if required Python packages are available
 check_python_deps() {
     print_status "Checking Python dependencies..."

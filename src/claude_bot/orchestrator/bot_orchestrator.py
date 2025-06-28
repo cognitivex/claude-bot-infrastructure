@@ -10,22 +10,10 @@ import sys
 import os
 from pathlib import Path
 
-# Add the scripts directory to Python path
-script_dir = os.path.dirname(os.path.abspath(__file__))
-if script_dir not in sys.path:
-    sys.path.insert(0, script_dir)
-
-# Alternative: try direct import
-try:
-    from github_task_executor import GitHubTaskExecutor
-    from pr_feedback_handler import PRFeedbackHandler
-    from status_reporter import StatusReporter
-except ImportError:
-    # If that fails, try absolute path
-    sys.path.insert(0, '/bot/scripts')
-    from github_task_executor import GitHubTaskExecutor
-    from pr_feedback_handler import PRFeedbackHandler
-    from status_reporter import StatusReporter
+# Import from the new package structure
+from claude_bot.executors.github_task_executor import GitHubTaskExecutor
+from claude_bot.executors.pr_feedback_handler import PRFeedbackHandler
+from claude_bot.monitoring.status_reporter import StatusReporter
 
 class BotOrchestrator:
     def __init__(self, workspace_dir="/workspace", data_dir="/bot/data", repo=None, bot_id=None):

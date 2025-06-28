@@ -20,6 +20,10 @@ class StatusReporter:
         self.status_web_url = status_web_url or "http://claude-status-web:5000"
         self.start_time = datetime.now()
         
+        # For orchestrator mode - store orchestrator-specific stats
+        self.orchestrator_stats = None
+        self.is_orchestrator = "orchestrator" in bot_id.lower()
+        
     def collect_bot_status(self):
         """Collect current bot status information"""
         now = datetime.now()
@@ -30,7 +34,8 @@ class StatusReporter:
             "timestamp": now.isoformat(),
             "status": "unknown",
             "uptime": self._calculate_uptime(),
-            "health": "unknown"
+            "health": "unknown",
+            "type": "orchestrator" if self.is_orchestrator else "single_bot"
         }
         
         # Try to get environment info
@@ -50,21 +55,26 @@ class StatusReporter:
         
         # Check queue status
         try:
-            queue_dir = self.data_dir / "queue"
-            processed_dir = self.data_dir / "processed"
-            
-            queued_tasks = list(queue_dir.glob("*.json")) if queue_dir.exists() else []
-            processed_tasks = list(processed_dir.glob("*.json")) if processed_dir.exists() else []
-            
-            status_data.update({
-                "queued_tasks": len(queued_tasks),
-                "processed_tasks": len(processed_tasks),
-                "queue_details": self._get_queue_details(queued_tasks),
-                "status": "running" if len(queued_tasks) > 0 else "idle"
-            })
-            
-            # Get recent activity
-            status_data["recent_activity"] = self._get_recent_activity(processed_tasks)
+            if self.is_orchestrator:
+                # Orchestrator-specific status collection
+                status_data.update(self._collect_orchestrator_status())
+            else:
+                # Single bot status collection (legacy)
+                queue_dir = self.data_dir / "queue"
+                processed_dir = self.data_dir / "processed"
+                
+                queued_tasks = list(queue_dir.glob("*.json")) if queue_dir.exists() else []
+                processed_tasks = list(processed_dir.glob("*.json")) if processed_dir.exists() else []
+                
+                status_data.update({
+                    "queued_tasks": len(queued_tasks),
+                    "processed_tasks": len(processed_tasks),
+                    "queue_details": self._get_queue_details(queued_tasks),
+                    "status": "running" if len(queued_tasks) > 0 else "idle"
+                })
+                
+                # Get recent activity
+                status_data["recent_activity"] = self._get_recent_activity(processed_tasks)
             
         except Exception as e:
             print(f"Warning: Could not collect queue status: {e}")
@@ -79,6 +89,85 @@ class StatusReporter:
             status_data["health"] = "unknown"
         
         return status_data
+    
+    def _collect_orchestrator_status(self):
+        """Collect orchestrator-specific status information"""
+        orchestrator_data = {
+            "orchestrator": True,
+            "status": "running"
+        }
+        
+        # Use orchestrator stats if available (set by central_orchestrator.py)
+        if self.orchestrator_stats:
+            orchestrator_data.update({
+                "orchestrator_stats": self.orchestrator_stats.get("stats", {}),
+                "queue_stats": self.orchestrator_stats.get("queue", {}),
+                "worker_stats": self.orchestrator_stats.get("workers", {}),
+                "started_at": self.orchestrator_stats.get("started_at"),
+                "last_updated": self.orchestrator_stats.get("last_updated")
+            })
+            
+            # Determine overall status
+            queue_stats = self.orchestrator_stats.get("queue", {})
+            worker_stats = self.orchestrator_stats.get("workers", {})
+            
+            pending_tasks = queue_stats.get("pending", 0)
+            active_workers = worker_stats.get("active_workers", 0)
+            
+            if pending_tasks > 0 or active_workers > 0:
+                orchestrator_data["status"] = "processing"
+            else:
+                orchestrator_data["status"] = "idle"
+        
+        else:
+            # Fallback: collect basic queue information
+            try:
+                queue_dir = self.data_dir / "queue"
+                if queue_dir.exists():
+                    pending_dir = queue_dir / "pending"
+                    assigned_dir = queue_dir / "assigned"
+                    completed_dir = queue_dir / "completed"
+                    failed_dir = queue_dir / "failed"
+                    
+                    orchestrator_data["queue_stats"] = {
+                        "pending": len(list(pending_dir.glob("*.json"))) if pending_dir.exists() else 0,
+                        "assigned": len(list(assigned_dir.glob("*.json"))) if assigned_dir.exists() else 0,
+                        "completed": len(list(completed_dir.glob("*.json"))) if completed_dir.exists() else 0,
+                        "failed": len(list(failed_dir.glob("*.json"))) if failed_dir.exists() else 0
+                    }
+                    
+                    total_tasks = sum(orchestrator_data["queue_stats"].values())
+                    orchestrator_data["queue_stats"]["total"] = total_tasks
+                    
+                    # Check worker info directory
+                    workers_dir = self.data_dir / "workers"
+                    if workers_dir.exists():
+                        worker_files = list(workers_dir.glob("*.json"))
+                        orchestrator_data["worker_stats"] = {
+                            "active_workers": len(worker_files),
+                            "max_workers": int(os.getenv("MAX_WORKERS", 3))
+                        }
+                    else:
+                        orchestrator_data["worker_stats"] = {
+                            "active_workers": 0,
+                            "max_workers": int(os.getenv("MAX_WORKERS", 3))
+                        }
+                    
+                    # Determine status
+                    pending = orchestrator_data["queue_stats"]["pending"]
+                    active_workers = orchestrator_data["worker_stats"]["active_workers"]
+                    
+                    if pending > 0 or active_workers > 0:
+                        orchestrator_data["status"] = "processing"
+                    else:
+                        orchestrator_data["status"] = "idle"
+                        
+            except Exception as e:
+                print(f"Warning: Could not collect orchestrator queue stats: {e}")
+                orchestrator_data["status"] = "error"
+                orchestrator_data["error"] = str(e)
+        
+        return orchestrator_data
     
     def _calculate_uptime(self):
         """Calculate bot uptime"""
@@ -219,11 +308,22 @@ class StatusReporter:
         # Print summary
         print(f"📈 Status Summary:")
         print(f"   Bot ID: {status_data['bot_id']}")
+        print(f"   Type: {status_data.get('type', 'unknown')}")
         print(f"   Status: {status_data['status']}")
         print(f"   Health: {status_data['health']}")
-        print(f"   Queued: {status_data.get('queued_tasks', 0)}")
-        print(f"   Processed: {status_data.get('processed_tasks', 0)}")
         print(f"   Uptime: {status_data['uptime']}")
+        
+        if self.is_orchestrator:
+            # Orchestrator-specific summary
+            queue_stats = status_data.get('queue_stats', {})
+            worker_stats = status_data.get('worker_stats', {})
+            print(f"   Queue - Pending: {queue_stats.get('pending', 0)}, Assigned: {queue_stats.get('assigned', 0)}")
+            print(f"   Queue - Completed: {queue_stats.get('completed', 0)}, Failed: {queue_stats.get('failed', 0)}")
+            print(f"   Workers: {worker_stats.get('active_workers', 0)}/{worker_stats.get('max_workers', 3)}")
+        else:
+            # Single bot summary
+            print(f"   Queued: {status_data.get('queued_tasks', 0)}")
+            print(f"   Processed: {status_data.get('processed_tasks', 0)}")
         
         return status_data
 

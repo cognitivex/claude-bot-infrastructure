@@ -12,6 +12,14 @@ import argparse
 from datetime import datetime
 from pathlib import Path
 
+# Import secure worker initialization
+try:
+    from claude_bot.security.secure_worker_init import init_secure_worker
+except ImportError:
+    print("⚠️  Secure worker initialization not available, using environment variables")
+    def init_secure_worker():
+        return True
+
 class GitHubTaskExecutor:
     def __init__(self, workspace_dir="/workspace", data_dir="/bot/data", repo=None):
         self.workspace_dir = workspace_dir
@@ -19,8 +27,12 @@ class GitHubTaskExecutor:
         self.processed_dir = self.data_dir / "processed"
         self.repo = repo or self.get_repo_from_git()
         
+        # Initialize worker with secure secrets
+        if not init_secure_worker():
+            print("⚠️  Worker initialization failed, some features may not work")
+        
         # Bot configuration
-        self.bot_label = "claude-bot"
+        self.bot_label = os.getenv('BOT_LABEL', 'claude-bot')
         self.status_labels = {
             "queued": "bot:queued",
             "in_progress": "bot:in-progress", 
